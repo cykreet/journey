@@ -89,7 +89,7 @@ pub async fn open_login_window(app: AppHandle, domain: &str) -> Result<(), Strin
 }
 
 fn get_session_cookie<'a>(cookies: &'a Vec<Cookie<'static>>) -> Option<&'a Cookie<'a>> {
-	return cookies
+	cookies
 		.iter()
-		.find(|cookie| cookie.name() == "MoodleSession");
+		.find(|cookie| cookie.name() == "MoodleSession")
 }

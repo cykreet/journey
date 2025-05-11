@@ -121,15 +121,16 @@ async fn sync_user_courses(
 	.unwrap();
 	let response = client.execute(request).await.unwrap();
 	let body = response.text().await.unwrap();
-	let mut courses: Vec<Course> = serde_json::from_str(&body).unwrap();
+	let courses: Vec<Course> = serde_json::from_str(&body).unwrap();
 
 	let pool = &state.0;
-	let query = SqlQuery::new().pool(pool);
-	// .insert_into(courses)
-	// .await
-	// .unwrap();
+	SqlQuery::new()
+		.pool(&pool)
+		.insert_into(&courses)
+		.await
+		.unwrap();
 
-	return Ok(courses);
+	Ok(courses)
 }
 
 fn build_service_request(
@@ -147,11 +148,9 @@ fn build_service_request(
 		format!("MoodleSession={session_cookie}").parse().unwrap(),
 	);
 
-	let request = client
+	client
 		.post(endpoint)
 		.headers(headers)
 		.body(serde_json::to_string(&service_methods).unwrap())
-		.build();
-
-	return request;
+		.build()
 }
