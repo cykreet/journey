@@ -1,10 +1,9 @@
 import { IconArchiveFilled, IconCookieFilled, IconUserFilled } from "@tabler/icons-react";
 import { Link } from "wouter";
-import { commands } from "../../bindings";
 import { useUserCourses } from "../../hooks/useUserCourses";
 import { SidebarIcon, SidebarIconStyle } from "./sidebar-icon";
 
-export const Sidebar = () => {
+export const Sidebar = ({ onUserClick }: { onUserClick: () => void }) => {
 	const courses = useUserCourses();
 
 	return (
@@ -31,7 +30,7 @@ export const Sidebar = () => {
 				))}
 			</div>
 			<div className="mt-auto">
-				<SidebarIcon iconStyle={SidebarIconStyle.GOO} onClick={() => commands.openLoginWindow("https://google.com")}>
+				<SidebarIcon iconStyle={SidebarIconStyle.GOO} onClick={() => onUserClick()}>
 					<IconUserFilled className="mx-auto" />
 				</SidebarIcon>
 			</div>

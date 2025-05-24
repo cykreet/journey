@@ -1,8 +1,16 @@
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tauri::{
 	webview::{Cookie, PageLoadEvent},
-	AppHandle, Manager, Url, WebviewWindowBuilder,
+	AppHandle, Emitter, Manager, Url, WebviewWindowBuilder,
 };
 use tauri_plugin_store::StoreExt;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub enum AuthState {
+	Failed,
+	Success,
+}
 
 pub mod auth_keys {
 	pub const INITIAL_SESSION: &str = "initial_session";
@@ -69,6 +77,7 @@ pub async fn open_login_window(app: AppHandle, domain: &str) -> Result<(), Strin
 				println!("storing session {}", session_value);
 				auth_store.set(auth_keys::MOODLE_SESSION, session_value);
 				auth_store.set(auth_keys::MOODLE_HOST, url.host().unwrap().to_string());
+				window.emit("login_close", AuthState::Success).unwrap();
 				window.close().unwrap();
 			}
 			None => {

@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_specta::{collect_commands, Builder};
 
-use auth::open_login_window;
+use auth::{open_login_window, AuthState};
 use entities::{ContentType, Course, CourseItem, CourseItemContent};
 use service_request::get_user_courses;
 
@@ -20,7 +20,8 @@ pub fn main() {
 		.typ::<Course>()
 		.typ::<ContentType>()
 		.typ::<CourseItem>()
-		.typ::<CourseItemContent>();
+		.typ::<CourseItemContent>()
+		.typ::<AuthState>();
 
 	let ts_exporter = Typescript::new()
 		.bigint(BigIntExportBehavior::BigInt)
@@ -36,6 +37,15 @@ pub fn main() {
 		.plugin(tauri_plugin_store::Builder::new().build())
 		.plugin(tauri_plugin_http::init())
 		.plugin(tauri_plugin_opener::init())
+		.on_window_event(|window, event| match event {
+			tauri::WindowEvent::CloseRequested { .. } => {
+				if window.label() == "login" {
+					// todo: replace with event keys somewhere
+					window.emit("login_closed", AuthState::Failed).unwrap();
+				}
+			}
+			_ => {}
+		})
 		// .plugin(tauri_plugin_updater::Builder::new().build())
 		.setup(move |app| {
 			builder.mount_events(app);
