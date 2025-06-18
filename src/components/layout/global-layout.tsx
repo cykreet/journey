@@ -16,7 +16,8 @@ export const GlobalLayout = ({ children }: { children: React.ReactNode }) => {
 		const unlisten = await listen<AuthState>("login_closed", (event) => {
 			setLoading(false);
 			setAuthState(event.payload);
-			setTimeout(() => setShowDialog(false), 4000);
+			// todo: maybe somehow get enums from the types exported in bindings.ts
+			if (authState !== "Aborted") setTimeout(() => setShowDialog(false), 4000);
 		});
 
 		setLoading(true);

@@ -1,14 +1,15 @@
 import { IconArchiveFilled, IconCookieFilled, IconUserFilled } from "@tabler/icons-react";
 import { Link } from "wouter";
-import { useUserCourses } from "../../hooks/useUserCourses";
+import { useCommand } from "../../hooks/useUserCourses";
 import { SidebarIcon, SidebarIconStyle } from "./sidebar-icon";
+import { commands } from "../../bindings";
 
 export const Sidebar = ({ onUserClick }: { onUserClick: () => void }) => {
-	const courses = useUserCourses();
+	const courses = useCommand(commands.getUserCourses);
 
 	return (
 		<div className="flex flex-col px-2 py-2 bg-wood-700 h-svh border-r border-ivory/10">
-			<div className="flex flex-col space-y-4 overflow-y-auto h-full">
+			<div className="flex flex-col space-y-4 overflow-y-auto h-full hide-scroll">
 				<Link href="/">
 					<SidebarIcon iconStyle={SidebarIconStyle.GOO}>
 						<IconCookieFilled className="mx-auto" />
@@ -29,7 +30,7 @@ export const Sidebar = ({ onUserClick }: { onUserClick: () => void }) => {
 					</Link>
 				))}
 			</div>
-			<div className="mt-auto">
+			<div className="mt-auto pt-2">
 				<SidebarIcon iconStyle={SidebarIconStyle.GOO} onClick={() => onUserClick()}>
 					<IconUserFilled className="mx-auto" />
 				</SidebarIcon>

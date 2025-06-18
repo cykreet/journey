@@ -4,19 +4,23 @@ use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
 use tauri::{Emitter, Manager};
 use tauri_specta::{collect_commands, Builder};
 
-use auth::{open_login_window, AuthState};
+use auth::{get_user_session, open_login_window, AuthState};
 use entities::{ContentType, Course, CourseItem, CourseItemContent};
-use service_request::get_user_courses;
+use request::courses::get_user_courses;
 
 mod auth;
 mod database;
 mod entities;
-mod service_request;
+mod request;
 mod sql_query;
 
 pub fn main() {
 	let builder = Builder::<tauri::Wry>::new()
-		.commands(collect_commands![open_login_window, get_user_courses])
+		.commands(collect_commands![
+			open_login_window,
+			get_user_courses,
+			get_user_session
+		])
 		.typ::<Course>()
 		.typ::<ContentType>()
 		.typ::<CourseItem>()
@@ -27,6 +31,7 @@ pub fn main() {
 		.bigint(BigIntExportBehavior::BigInt)
 		.formatter(formatter::biome);
 
+	// todo: will this break in release builds?
 	#[cfg(debug_assertions)]
 	builder
 		.export(ts_exporter, "../src/bindings.ts")
@@ -41,7 +46,7 @@ pub fn main() {
 			tauri::WindowEvent::CloseRequested { .. } => {
 				if window.label() == "login" {
 					// todo: replace with event keys somewhere
-					window.emit("login_closed", AuthState::Failed).unwrap();
+					window.emit("login_closed", AuthState::Aborted).unwrap();
 				}
 			}
 			_ => {}

@@ -1,11 +1,12 @@
 import { useRoute } from "wouter";
 import { CourseLayout } from "../components/layout/course/course-layout";
-import { useUserCourses } from "../hooks/useUserCourses";
+import { useCommand } from "../hooks/useUserCourses";
 import type { CourseSidebarItem } from "../components/layout/course/course-sidebar";
+import { commands } from "../bindings";
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:id/:page?");
-	const courses = useUserCourses();
+	const courses = useCommand(commands.getUserCourses);
 	const courseId = params?.id;
 	const pageId = params?.page;
 

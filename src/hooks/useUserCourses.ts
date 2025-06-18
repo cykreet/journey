@@ -1,18 +1,24 @@
 import { useEffect, useState } from "react";
-import { commands, type Course } from "../bindings";
+import type { Result } from "../bindings";
 
-export const useUserCourses = (): Course[] | undefined => {
-	const [coursesValue, setCoursesValue] = useState<Course[] | undefined>();
+export const useCommand = <T>(command: () => Promise<Result<T, unknown>>): T | undefined => {
+	const [commandValue, setCommandValue] = useState<T | undefined>();
 
 	useEffect(() => {
 		const getUserCourses = async () => {
-			const courses = await commands.getUserCourses();
-			if (courses.status !== "ok") return null;
-			setCoursesValue(courses.data);
+			const result = await command();
+			// todo: handle error somehow
+			if (result.status !== "ok") {
+				console.log(result.error);
+				return null;
+			}
+
+			console.log(result.data);
+			setCommandValue(result.data);
 		};
 
 		getUserCourses();
-	}, []);
+	}, [command]);
 
-	return coursesValue;
+	return commandValue;
 };
