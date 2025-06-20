@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{
@@ -7,11 +9,23 @@ use tauri::{
 use tauri_plugin_http::reqwest;
 use tauri_plugin_store::StoreExt;
 
+#[derive(Default)]
+pub struct AuthState {
+	pub status: AuthStatus,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-pub enum AuthState {
+pub enum AuthStatus {
 	Failed,
 	Success,
 	Aborted,
+	Pending,
+}
+
+impl Default for AuthStatus {
+	fn default() -> Self {
+		AuthStatus::Pending
+	}
 }
 
 pub mod auth_keys {
@@ -46,12 +60,6 @@ pub async fn open_login_window(app: AppHandle, domain: &str) -> Result<(), Strin
 	.on_page_load(move |window, payload| match payload.event() {
 		PageLoadEvent::Started => (),
 		PageLoadEvent::Finished => {
-			let store = window.store("auth");
-			if store.is_err() {
-				println!("could not open store");
-				return window.close().unwrap();
-			}
-
 			let url = payload.url();
 			let host_cookies = window.cookies_for_url(url.clone()).unwrap();
 			let session_cookie = get_session_cookie(&host_cookies);
@@ -105,9 +113,13 @@ pub async fn open_login_window(app: AppHandle, domain: &str) -> Result<(), Strin
 					cloned_auth_store.set(auth_keys::SESSION_KEY, session_key);
 				});
 
+				let auth_state = app_handle.state::<Mutex<AuthState>>();
+				let mut auth_state = auth_state.lock().unwrap();
+				auth_state.status = AuthStatus::Success;
+
 				auth_store.set(auth_keys::MOODLE_SESSION, session_value);
 				auth_store.set(auth_keys::MOODLE_HOST, url.host().unwrap().to_string());
-				window.emit("login_close", AuthState::Success).unwrap();
+				window.emit("login_closed", AuthStatus::Success).unwrap();
 				window.close().unwrap();
 			}
 			None => {

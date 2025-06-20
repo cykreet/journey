@@ -13,7 +13,6 @@ export const useCommand = <T>(command: () => Promise<Result<T, unknown>>): T | u
 				return null;
 			}
 
-			console.log(result.data);
 			setCommandValue(result.data);
 		};
 

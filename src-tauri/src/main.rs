@@ -1,10 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::Mutex;
+
 use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
 use tauri::{Emitter, Manager};
+// use tauri_plugin_store::StoreExt;
 use tauri_specta::{collect_commands, Builder};
 
-use auth::{get_user_session, open_login_window, AuthState};
+use auth::{get_user_session, open_login_window, AuthState, AuthStatus};
 use entities::{ContentType, Course, CourseItem, CourseItemContent};
 use request::courses::get_user_courses;
 
@@ -25,7 +28,7 @@ pub fn main() {
 		.typ::<ContentType>()
 		.typ::<CourseItem>()
 		.typ::<CourseItemContent>()
-		.typ::<AuthState>();
+		.typ::<AuthStatus>();
 
 	let ts_exporter = Typescript::new()
 		.bigint(BigIntExportBehavior::BigInt)
@@ -44,9 +47,12 @@ pub fn main() {
 		.plugin(tauri_plugin_opener::init())
 		.on_window_event(|window, event| match event {
 			tauri::WindowEvent::CloseRequested { .. } => {
-				if window.label() == "login" {
+				let auth_state = window.app_handle().state::<Mutex<AuthState>>();
+				let auth_state = auth_state.lock().unwrap();
+				if window.label() == "login" && auth_state.status == AuthStatus::Pending {
 					// todo: replace with event keys somewhere
-					window.emit("login_closed", AuthState::Aborted).unwrap();
+					window.emit("login_closed", AuthStatus::Aborted).unwrap();
+					// set
 				}
 			}
 			_ => {}
@@ -69,6 +75,8 @@ pub fn main() {
 				handle.manage(database::DatabaseState(database.pool));
 			});
 
+			// todo: set auth state based on existing session
+			handle.manage(Mutex::new(AuthState::default()));
 			Ok(())
 		})
 		.run(tauri::generate_context!())

@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
-import React, { useState } from "react";
-import { type AuthState, commands } from "../../bindings";
+import React, { useEffect, useRef, useState } from "react";
+import { type AuthStatus, commands } from "../../bindings";
 import { Button, ButtonStyle } from "../button";
 import { Dialog, DialogBodyFailed, DialogBodySuccess } from "../dialog";
 import { Input } from "../input";
@@ -8,24 +8,40 @@ import { Sidebar } from "./sidebar";
 
 export const GlobalLayout = ({ children }: { children: React.ReactNode }) => {
 	const [showDialog, setShowDialog] = useState(false);
-	const [authState, setAuthState] = useState<AuthState>();
+	const [authState, setAuthState] = useState<AuthStatus>();
 	const [loading, setLoading] = useState(false);
 	const [host, setHost] = useState("");
+	const timerRef = useRef<number>();
+	const authStateRef = useRef<AuthStatus>();
 
-	const openLoginWindow = async () => {
-		const unlisten = await listen<AuthState>("login_closed", (event) => {
+	useEffect(() => {
+		const unlistenPromise = listen<AuthStatus>("login_closed", (event) => {
 			setLoading(false);
 			setAuthState(event.payload);
-			// todo: maybe somehow get enums from the types exported in bindings.ts
-			if (authState !== "Aborted") setTimeout(() => setShowDialog(false), 4000);
+			timerRef.current = setTimeout(
+				(state: AuthStatus) => {
+					if (state === "Aborted") return;
+					setAuthState(undefined);
+					setShowDialog(false);
+				},
+				3000,
+				event.payload,
+			);
 		});
 
+		return () => {
+			unlistenPromise.then((unlisten) => unlisten());
+			clearTimeout(timerRef.current);
+		};
+	}, []);
+
+	useEffect(() => {
+		authStateRef.current = authState;
+	}, [authState]);
+
+	const openLoginWindow = async () => {
 		setLoading(true);
 		commands.openLoginWindow(host);
-
-		return () => {
-			unlisten();
-		};
 	};
 
 	return (
