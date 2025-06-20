@@ -1,6 +1,7 @@
 import React from "react";
 import { Loading } from "./loading";
-import { IconCircleCheckFilled, IconCircleXFilled } from "@tabler/icons-react";
+import IconCircleCheckFilled from "~icons/tabler/circle-check-filled";
+import IconCircleXFilled from "~icons/tabler/circle-x-filled";
 
 export const Dialog = ({
 	open,

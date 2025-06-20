@@ -1,4 +1,4 @@
-import { IconChartCircles } from "@tabler/icons-react";
+import IconChartCircles from "~icons/tabler/chart-circles";
 
 export const Loading = () => {
 	return (
