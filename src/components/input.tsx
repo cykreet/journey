@@ -9,6 +9,7 @@ export const Input = ({
 	className,
 	value,
 	onChange,
+	onEnter,
 }: {
 	label?: string;
 	placeholder?: string;
@@ -17,6 +18,7 @@ export const Input = ({
 	value?: string;
 	disabled?: boolean;
 	onChange?: (value: string) => void;
+	onEnter?: () => void;
 }) => {
 	const containerClasses = clsx("flex flex-col space-y-1", className);
 
@@ -31,6 +33,7 @@ export const Input = ({
 					placeholder={placeholder}
 					value={value}
 					onChange={(event) => onChange?.(event.target.value)}
+					onKeyDown={(event) => event.key === "Enter" && onEnter?.()}
 				/>
 			</div>
 		</div>

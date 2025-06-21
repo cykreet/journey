@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import type { Result } from "../bindings";
 
-export const useCommand = <T>(command: () => Promise<Result<T, unknown>>): T | undefined => {
+export interface Command<T> {
+	data?: T;
+	error?: string;
+}
+
+export const useCommand = <T>(command: () => Promise<Result<T, unknown>>): Command<T> => {
 	const [commandValue, setCommandValue] = useState<T | undefined>();
 
 	useEffect(() => {
 		const getUserCourses = async () => {
 			const result = await command();
-			// todo: handle error somehow
 			if (result.status !== "ok") {
 				console.log(result.error);
-				return null;
+				return { error: result.error };
 			}
 
 			setCommandValue(result.data);
@@ -19,5 +23,5 @@ export const useCommand = <T>(command: () => Promise<Result<T, unknown>>): T | u
 		getUserCourses();
 	}, [command]);
 
-	return commandValue;
+	return { data: commandValue };
 };

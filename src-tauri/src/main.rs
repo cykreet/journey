@@ -1,21 +1,24 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Mutex;
-
 use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
+use tauri::async_runtime::Mutex;
 use tauri::{Emitter, Manager};
 // use tauri_plugin_store::StoreExt;
 use tauri_specta::{collect_commands, Builder};
 
-use auth::{get_user_session, open_login_window, AuthState, AuthStatus};
-use entities::{ContentType, Course, CourseItem, CourseItemContent};
-use request::courses::get_user_courses;
+use self::auth::{get_user_session, open_login_window, AuthState, AuthStatus};
+use self::entities::{ContentType, Course, CourseItem, CourseItemContent};
+use self::request::courses::get_user_courses;
 
 mod auth;
 mod database;
 mod entities;
 mod request;
 mod sql_query;
+
+pub mod store_keys {
+	pub const AUTH: &str = "auth";
+}
 
 pub fn main() {
 	let builder = Builder::<tauri::Wry>::new()
@@ -48,11 +51,10 @@ pub fn main() {
 		.on_window_event(|window, event| match event {
 			tauri::WindowEvent::CloseRequested { .. } => {
 				let auth_state = window.app_handle().state::<Mutex<AuthState>>();
-				let auth_state = auth_state.lock().unwrap();
+				let auth_state = tauri::async_runtime::block_on(auth_state.lock());
 				if window.label() == "login" && auth_state.status == AuthStatus::Pending {
 					// todo: replace with event keys somewhere
 					window.emit("login_closed", AuthStatus::Aborted).unwrap();
-					// set
 				}
 			}
 			_ => {}
@@ -64,7 +66,7 @@ pub fn main() {
 
 			#[cfg(desktop)]
 			handle
-				.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
+				.plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
 				.expect("failed to initialise single instance");
 
 			tauri::async_runtime::block_on(async move {

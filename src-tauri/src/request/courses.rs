@@ -10,6 +10,7 @@ use crate::{
 	request::service_request::{
 		build_service_request, service_methods, ServiceMethod, ServiceResponse,
 	},
+	store_keys,
 };
 
 #[derive(Default, Deserialize)]
@@ -39,7 +40,7 @@ async fn sync_user_courses(
 	app: &AppHandle,
 	state: &tauri::State<'_, DatabaseState>,
 ) -> Result<Vec<Course>, String> {
-	let auth_store = app.store("auth").unwrap();
+	let auth_store = app.store(store_keys::AUTH).unwrap();
 	let client = reqwest::Client::new();
 	let service_method = ServiceMethod::new(0, service_methods::GET_COURSES)
 		.with_offset(0)

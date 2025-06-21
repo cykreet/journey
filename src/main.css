@@ -50,3 +50,19 @@ p {
 .hide-scroll ::-webkit-scrollbar {
 	display: none;
 }
+
+.sweep-up {
+	animation: float-up 100ms ease-in;
+	animation-timing-function: cubic-bezier(1.95, 0.05, 0.795, 0.035);
+}
+
+@keyframes float-up {
+	0% {
+		transform: translateY(10px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 100%;
+	}
+}

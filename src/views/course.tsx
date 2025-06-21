@@ -1,31 +1,40 @@
 import { useRoute } from "wouter";
-import { CourseLayout } from "../components/layout/course/course-layout";
-import { useCommand } from "../hooks/useUserCourses";
-import type { CourseSidebarItem } from "../components/layout/course/course-sidebar";
 import { commands } from "../bindings";
+import { MenuLayout } from "../components/layout/menu/menu-layout";
+import type { MenuSidebarItem } from "../components/layout/menu/menu-sidebar";
+import { SidebarIcon, SidebarIconStyle } from "../components/layout/sidebar-icon";
+import { useCommand } from "../hooks/useUserCourses";
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:id/:page?");
-	const courses = useCommand(commands.getUserCourses);
+	const { data, error } = useCommand(commands.getUserCourses);
 	const courseId = params?.id;
 	const pageId = params?.page;
 
-	const course = courses?.find((course) => course.id === Number(courseId));
-	if (!match || !course) return <div>course not found</div>;
-
-	const coursePages: CourseSidebarItem[] = [
+	const course = data?.find((course) => course.id === Number(courseId));
+	if (!match || error || !course) return <div>{error}</div>;
+	const coursePages: MenuSidebarItem[] = [
 		{
 			id: 1,
 			name: "Introduction",
+			href: `/course/${courseId}/introduction`,
 		},
 	];
 
 	return (
-		<CourseLayout course={course} sidebarItems={coursePages}>
+		<MenuLayout
+			header={
+				<span className="font-bold flex flex-row gap-3 items-center">
+					<SidebarIcon iconStyle={SidebarIconStyle.GOO}>{course.name[0]}</SidebarIcon>
+					{course.name}
+				</span>
+			}
+			sidebarItems={coursePages}
+		>
 			<h2>Introduction</h2>
 			<span>
 				course id: {courseId}, page name: {pageId}
 			</span>
-		</CourseLayout>
+		</MenuLayout>
 	);
 };
