@@ -1,4 +1,4 @@
-<a href="https://radare.org/"><img border=0 src="public/icons/journey.svg" alt="logo" align="left" width="64px"></a>
+<a href="https://radare.org/"><img border=0 src="public/icons/journey.svg" alt="logo" align="left" width="30px"></a>
 
 ## journey
 
