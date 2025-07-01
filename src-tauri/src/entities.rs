@@ -4,33 +4,44 @@ use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use sqlx::{types::Json, Decode, Encode, FromRow, Sqlite};
+use sqlx::{FromRow, Sqlite};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub trait TableLike {
+	fn table_name() -> String;
+	fn column_names() -> Vec<String>;
+	fn bind_to_query<'q>(
+		&'q self,
+		query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+	) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>;
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, sqlx::Type)]
 pub enum ContentType {
 	Markup,
 	Resource,
 }
 
-impl<'q> Encode<'q, Sqlite> for ContentType {
-	fn encode_by_ref(
-		&self,
-		buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
-	) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
-		<Json<&ContentType> as Encode<Sqlite>>::encode(Json(self), buf)
-	}
-}
+// impl<'q> Encode<'q, Sqlite> for ContentType {
+// 	fn encode_by_ref(
+// 		&self,
+// 		buf: &mut <Sqlite as sqlx::Database>::ArgumentBuffer<'q>,
+// 	) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+// 		<Json<&ContentType> as Encode<Sqlite>>::encode(Json(self), buf)
+// 	}
+// }
 
-impl<'q> Decode<'q, Sqlite> for ContentType {
-	fn decode(
-		value: <Sqlite as sqlx::Database>::ValueRef<'q>,
-	) -> Result<Self, sqlx::error::BoxDynError> {
-		let Json(content_type) = <Json<ContentType> as Decode<Sqlite>>::decode(value)?;
-		Ok(content_type)
-	}
-}
+// impl<'q> Decode<'q, Sqlite> for ContentType {
+// 	fn decode(
+// 		value: <Sqlite as sqlx::Database>::ValueRef<'q>,
+// 	) -> Result<Self, sqlx::error::BoxDynError> {
+// 		let Json(content_type) = <Json<ContentType> as Decode<Sqlite>>::decode(value)?;
+// 		Ok(content_type)
+// 	}
+// }
 
-#[derive(Serialize, Deserialize, Type, FromRow)]
+// impl sqlx::Type<Sqlite> for ContentType {}
+
+#[derive(Serialize, Deserialize, Type, FromRow, Clone)]
 pub struct Course {
 	pub id: u32,
 	pub name: String,
@@ -52,60 +63,29 @@ impl TableLike for Course {
 		]
 	}
 
-	fn to_values(&self) -> Vec<Box<dyn sqlx::Encode<'_, sqlx::Sqlite> + Send>> {
-		vec![
-			Box::new(self.id),
-			Box::new(self.name.clone()),
-			Box::new(self.colour.clone()),
-			Box::new(self.icon.clone()),
-		]
+	fn bind_to_query<'q>(
+		&'q self,
+		query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+	) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
+		query
+			.bind(&self.id)
+			.bind(&self.name)
+			.bind(&self.colour)
+			.bind(&self.icon)
 	}
 }
 
-#[derive(Serialize, Deserialize, Type, FromRow)]
-pub struct CourseItemContent {
+#[derive(Serialize, Deserialize, Type, FromRow, Clone)]
+pub struct CourseItem {
 	id: u32,
+	parent_id: Option<u32>,
 	#[sqlx(skip)]
 	sync_hash: u64,
 	course_id: u32,
-	title: String,
-	content_type: ContentType,
-	content: Option<String>,
-}
-
-impl TableLike for CourseItemContent {
-	fn table_name() -> String {
-		"course_content".to_string()
-	}
-
-	fn column_names() -> Vec<String> {
-		vec![
-			"id".to_string(),
-			"course_id".to_string(),
-			"title".to_string(),
-			"content_type".to_string(),
-			"content".to_string(),
-		]
-	}
-
-	fn to_values(&self) -> Vec<Box<dyn sqlx::Encode<'_, sqlx::Sqlite> + Send>> {
-		vec![
-			Box::new(self.id),
-			Box::new(self.course_id),
-			Box::new(self.title.clone()),
-			Box::new(self.content_type.clone()),
-			Box::new(self.content.clone()),
-		]
-	}
-}
-
-#[derive(Serialize, Deserialize, Type, FromRow)]
-pub struct CourseItem {
-	id: u32,
-	course_id: u32,
 	name: String,
-	content: CourseItemContent,
-	children: Option<Vec<CourseItem>>,
+	content_type: ContentType,
+	updated_at: String,
+	content: String,
 }
 
 impl TableLike for CourseItem {
@@ -116,29 +96,26 @@ impl TableLike for CourseItem {
 	fn column_names() -> Vec<String> {
 		vec![
 			"id".to_string(),
+			"parent_id".to_string(),
 			"course_id".to_string(),
 			"name".to_string(),
+			"content_type".to_string(),
+			"updated_at".to_string(),
+			"content".to_string(),
 		]
 	}
 
-	fn to_values(&self) -> Vec<Box<dyn sqlx::Encode<'_, sqlx::Sqlite> + Send>> {
-		vec![
-			Box::new(self.id),
-			Box::new(self.course_id),
-			Box::new(self.name.clone()),
-		]
+	fn bind_to_query<'q>(
+		&'q self,
+		query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+	) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
+		query.bind(&self.id).bind(&self.course_id).bind(&self.name)
 	}
 }
 
-impl Hash for CourseItemContent {
+impl Hash for CourseItem {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.title.hash(state);
+		self.name.hash(state);
 		self.content.hash(state);
 	}
-}
-
-pub trait TableLike {
-	fn table_name() -> String;
-	fn column_names() -> Vec<String>;
-	fn to_values(&self) -> Vec<Box<dyn sqlx::Encode<'_, sqlx::Sqlite> + Send>>;
 }

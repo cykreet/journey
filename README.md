@@ -2,4 +2,3 @@
 
 
 <span>Modern desktop client for Moodle course content, prioritises quick access to material and local control.</span>
-

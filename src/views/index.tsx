@@ -1,5 +1,5 @@
 import { commands } from "../bindings";
-import { useCommand } from "../hooks/useUserCourses";
+import { useCommand } from "../hooks/useCommand";
 
 export const Index = () => {
 	const userSession = useCommand(commands.getUserSession);

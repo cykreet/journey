@@ -22,7 +22,7 @@ export const SidebarIcon = ({
 	iconStyle?: (typeof SidebarIconStyle)[keyof typeof SidebarIconStyle];
 }) => {
 	const classes = clsx(
-		"select-none cursor-pointer rounded-md w-8 h-8 font-bold text-center mx-auto content-center",
+		"select-none cursor-pointer rounded-md w-8 h-8 font-bold text-center content-center",
 		className,
 		iconStyle,
 	);

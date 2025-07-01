@@ -7,8 +7,8 @@ use tauri::{Emitter, Manager};
 use tauri_specta::{collect_commands, Builder};
 
 use self::auth::{get_user_session, open_login_window, AuthState, AuthStatus};
-use self::entities::{ContentType, Course, CourseItem, CourseItemContent};
-use self::request::courses::get_user_courses;
+use self::entities::{ContentType, Course, CourseItem};
+use self::request::courses::{get_user_course, get_user_courses};
 
 mod auth;
 mod database;
@@ -25,19 +25,18 @@ pub fn main() {
 		.commands(collect_commands![
 			open_login_window,
 			get_user_courses,
+			get_user_course,
 			get_user_session
 		])
 		.typ::<Course>()
 		.typ::<ContentType>()
 		.typ::<CourseItem>()
-		.typ::<CourseItemContent>()
 		.typ::<AuthStatus>();
 
 	let ts_exporter = Typescript::new()
 		.bigint(BigIntExportBehavior::BigInt)
 		.formatter(formatter::biome);
 
-	// todo: will this break in release builds?
 	#[cfg(debug_assertions)]
 	builder
 		.export(ts_exporter, "../src/bindings.ts")

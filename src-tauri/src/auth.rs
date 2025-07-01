@@ -45,6 +45,10 @@ pub async fn get_user_session(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn open_login_window(app: AppHandle, domain: &str) -> Result<(), String> {
+	if domain.is_empty() {
+		return Err("invalid domain".to_string());
+	}
+
 	let window_url = Url::parse(domain).unwrap();
 	let auth_store = app.store(store_keys::AUTH).unwrap();
 	auth_store.delete(auth_keys::INITIAL_SESSION);

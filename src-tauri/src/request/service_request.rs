@@ -2,9 +2,11 @@ use serde::{Deserialize, Serialize};
 use tauri::http::{HeaderMap, HeaderValue};
 use tauri_plugin_http::reqwest::{self};
 
+// todo: probably gonna need more robust methods for different versions/platforms
 pub mod service_methods {
 	pub const GET_NOTIFICATIONS: &str = "message_popup_get_popup_notifications";
 	pub const GET_COURSES: &str = "theme_remui_get_myoverviewcourses";
+	pub const SESSION_TOUCH: &str = "core_session_touch";
 }
 
 #[derive(Debug, Deserialize)]

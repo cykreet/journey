@@ -21,14 +21,16 @@ export function App() {
 	return (
 		<Switch>
 			<GlobalLayout>
-				<MenuLayout header={"Journey"} sidebarItems={homeMenuItems}>
-					<Route path="/">
+				<Route path="/">
+					<MenuLayout header={"Journey"} sidebarItems={homeMenuItems}>
 						<Index />
-					</Route>
-					<Route path="/announcements">
+					</MenuLayout>
+				</Route>
+				<Route path="/announcements">
+					<MenuLayout header={"Journey"} sidebarItems={homeMenuItems}>
 						<Announcements />
-					</Route>
-				</MenuLayout>
+					</MenuLayout>
+				</Route>
 				<Route path="/course/:id?/:page?">
 					<Course />
 				</Route>

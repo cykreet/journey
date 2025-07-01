@@ -25,6 +25,7 @@
 
 body {
 	background-color: var(--color-background);
+	font-family: "Archivo", sans-serif;
 	color: var(--color-text);
 }
 

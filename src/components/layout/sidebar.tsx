@@ -1,11 +1,11 @@
 import { Link } from "wouter";
 import IconJourney from "~icons/journey/journey";
-import IconUserFilled from "~icons/tabler/user-filled";
 import { commands } from "../../bindings";
-import { useCommand } from "../../hooks/useUserCourses";
+import { useCommand } from "../../hooks/useCommand";
 import { SidebarIcon, SidebarIconStyle } from "./sidebar-icon";
+import { User } from "../auth/user";
 
-export const Sidebar = ({ onUserClick }: { onUserClick: () => void }) => {
+export const Sidebar = () => {
 	const courses = useCommand(commands.getUserCourses);
 
 	return (
@@ -16,7 +16,7 @@ export const Sidebar = ({ onUserClick }: { onUserClick: () => void }) => {
 				</Link>
 				<hr className="border-ivory/10 my-3" />
 				{courses.data?.map((course) => (
-					<Link href={`/course/${course.id}`} key={course.id}>
+					<Link href={`/course/${course.id}/introduction`} key={course.id}>
 						<SidebarIcon iconStyle={SidebarIconStyle.WOOD} style={{ backgroundColor: course.colour ?? "" }}>
 							{course.name[0]}
 						</SidebarIcon>
@@ -24,9 +24,7 @@ export const Sidebar = ({ onUserClick }: { onUserClick: () => void }) => {
 				))}
 			</div>
 			<div className="mt-auto pt-2">
-				<SidebarIcon iconStyle={SidebarIconStyle.GOO} onClick={() => onUserClick()}>
-					<IconUserFilled className="mx-auto" />
-				</SidebarIcon>
+				<User />
 			</div>
 		</div>
 	);
