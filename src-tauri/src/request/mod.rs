@@ -1,2 +1,2 @@
-pub(crate) mod courses;
+pub(crate) mod course;
 pub(crate) mod service_request;

@@ -1,5 +1,5 @@
 use std::{
-	env::{self, set_var},
+	env::set_var,
 	fs::{create_dir_all, remove_file},
 };
 
@@ -26,6 +26,9 @@ impl Database {
 		create_dir_all(&app_dir)?;
 		let db_path = app_dir.join("journey.db");
 		set_var("DATABASE_URL", format!("sqlite://{}", db_path.display()));
+		if db_path.exists() {
+			remove_file(&db_path).unwrap();
+		}
 
 		let connection_options = SqliteConnectOptions::new()
 			.filename(&db_path)

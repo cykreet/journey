@@ -7,17 +7,19 @@ use tauri::{Emitter, Manager};
 use tauri_specta::{collect_commands, Builder};
 
 use self::auth::{get_user_session, open_login_window, AuthState, AuthStatus};
-use self::entities::{ContentType, Course, CourseItem};
-use self::request::courses::{get_user_course, get_user_courses};
+use self::entities::{ContentType, Course, CourseSection};
+use self::request::course::{get_course_sections, get_user_course, get_user_courses};
 
 mod auth;
 mod database;
 mod entities;
 mod request;
 mod sql_query;
+mod sync;
 
 pub mod store_keys {
 	pub const AUTH: &str = "auth";
+	pub const SYNC: &str = "sync";
 }
 
 pub fn main() {
@@ -26,11 +28,12 @@ pub fn main() {
 			open_login_window,
 			get_user_courses,
 			get_user_course,
-			get_user_session
+			get_user_session,
+			get_course_sections,
 		])
 		.typ::<Course>()
 		.typ::<ContentType>()
-		.typ::<CourseItem>()
+		.typ::<CourseSection>()
 		.typ::<AuthStatus>();
 
 	let ts_exporter = Typescript::new()

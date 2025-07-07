@@ -6,6 +6,7 @@ use tauri_plugin_http::reqwest::{self};
 pub mod service_methods {
 	pub const GET_NOTIFICATIONS: &str = "message_popup_get_popup_notifications";
 	pub const GET_COURSES: &str = "theme_remui_get_myoverviewcourses";
+	pub const GET_COURSE_ENROL_CONTENT: &str = "theme_remui_enrol_get_course_content";
 	pub const SESSION_TOUCH: &str = "core_session_touch";
 }
 
@@ -39,6 +40,8 @@ pub struct ServiceMethodArgs<'a> {
 	customfieldvalue: Option<&'a str>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	sort: Option<&'a str>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	courseid: Option<u32>,
 }
 
 impl<'a> ServiceMethod<'a> {
@@ -54,6 +57,7 @@ impl<'a> ServiceMethod<'a> {
 				customfieldname: None,
 				customfieldvalue: None,
 				sort: None,
+				courseid: None,
 			},
 		}
 	}
@@ -92,6 +96,11 @@ impl<'a> ServiceMethod<'a> {
 	// 	self.args.customfieldvalue = Some(customfieldvalue);
 	// 	self
 	// }
+
+	pub fn with_courseid(mut self, courseid: u32) -> Self {
+		self.args.courseid = Some(courseid);
+		self
+	}
 }
 
 pub fn build_service_request(

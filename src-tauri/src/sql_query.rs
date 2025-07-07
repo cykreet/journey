@@ -25,10 +25,8 @@ impl<'a> SqlQuery<'a> {
 		}
 
 		let pool = self.pool.unwrap();
-		let rows = sqlx::query_as("SELECT * FROM ?")
-			.bind(T::table_name())
-			.fetch_all(pool)
-			.await?;
+		let query_str = format!("SELECT * FROM {}", T::table_name());
+		let rows = sqlx::query_as(&query_str).fetch_all(pool).await?;
 
 		Ok(rows)
 	}
@@ -49,7 +47,6 @@ impl<'a> SqlQuery<'a> {
 		let table_name = T::table_name();
 		let query_str = format!("SELECT * FROM {} WHERE {}", table_name, where_clause);
 		let mut query = sqlx::query_as::<_, T>(&query_str);
-
 		for arg in args {
 			query = query.bind(arg);
 		}

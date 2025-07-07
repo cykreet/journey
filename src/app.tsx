@@ -3,33 +3,17 @@ import { Route, Switch } from "wouter";
 import { Index } from "./views";
 import { Course } from "./views/course";
 import { GlobalLayout } from "./components/layout/global-layout";
-import { MenuLayout } from "./components/layout/menu/menu-layout";
 import { Announcements } from "./views/announcements";
-import type { MenuSidebarItem } from "./components/layout/menu/menu-sidebar";
-import IconSpeaker from "~icons/tabler/device-speaker-filled";
 
 export function App() {
-	const homeMenuItems: MenuSidebarItem[] = [
-		{
-			id: 1,
-			icon: IconSpeaker,
-			name: "Announcements",
-			href: "/announcements",
-		},
-	];
-
 	return (
 		<Switch>
 			<GlobalLayout>
 				<Route path="/">
-					<MenuLayout header={"Journey"} sidebarItems={homeMenuItems}>
-						<Index />
-					</MenuLayout>
+					<Index />
 				</Route>
 				<Route path="/announcements">
-					<MenuLayout header={"Journey"} sidebarItems={homeMenuItems}>
-						<Announcements />
-					</MenuLayout>
+					<Announcements />
 				</Route>
 				<Route path="/course/:id?/:page?">
 					<Course />

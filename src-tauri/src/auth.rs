@@ -8,17 +8,17 @@ use tauri_plugin_store::StoreExt;
 
 use crate::store_keys;
 
-#[derive(Default)]
-pub struct AuthState {
-	pub status: AuthStatus,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub enum AuthStatus {
 	Failed,
 	Success,
 	Aborted,
 	Pending,
+}
+
+#[derive(Default)]
+pub struct AuthState {
+	pub status: AuthStatus,
 }
 
 impl Default for AuthStatus {
