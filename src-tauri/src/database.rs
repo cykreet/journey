@@ -1,7 +1,4 @@
-use std::{
-	env::set_var,
-	fs::{create_dir_all, remove_file},
-};
+use std::{env::set_var, fs::create_dir_all};
 
 use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode},
@@ -26,9 +23,6 @@ impl Database {
 		create_dir_all(&app_dir)?;
 		let db_path = app_dir.join("journey.db");
 		set_var("DATABASE_URL", format!("sqlite://{}", db_path.display()));
-		if db_path.exists() {
-			remove_file(&db_path).unwrap();
-		}
 
 		let connection_options = SqliteConnectOptions::new()
 			.filename(&db_path)

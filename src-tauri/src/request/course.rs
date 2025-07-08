@@ -75,7 +75,7 @@ pub async fn get_course_sections(
 ) -> Result<Vec<CourseSection>, String> {
 	sync::revalidate_task(
 		&app,
-		"get_course_sections",
+		format!("get_course_sections_{}", course_id).as_str(),
 		"Get course sections",
 		async move |app_handle| {
 			let auth_store = app_handle.store(store_keys::AUTH).unwrap();

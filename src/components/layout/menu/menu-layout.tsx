@@ -10,11 +10,11 @@ export interface MenuLayoutProps {
 	children?: React.ReactNode;
 }
 
-export const MenuLayout = ({ children, header, tocItems, sidebarSections }: MenuLayoutProps) => {
+export const MenuLayout = ({ children, header, tocItems, loading, sidebarSections }: MenuLayoutProps) => {
 	return (
 		<PanelGroup className="flex flex-row w-full max-h-svh space-x-20" direction={"horizontal"} autoSaveId="sidebar">
 			<Panel className="m-0" defaultSize={20} minSize={10} maxSize={25}>
-				<MenuSidebar header={header} sections={sidebarSections} />
+				<MenuSidebar loading={loading} header={header} sections={sidebarSections} />
 			</Panel>
 			<PanelResizeHandle />
 			<Panel className="container mx-auto h-full">

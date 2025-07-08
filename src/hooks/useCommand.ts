@@ -1,24 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Result } from "../bindings";
 
 export interface Command<T> {
 	data?: T;
 	error?: string;
 	loading?: boolean;
-}
-
-function useDeepCompareEffect(callback: () => void, dependencies: any[]) {
-	const currentDependenciesRef = useRef<any[]>();
-	if (!currentDependenciesRef.current || !deepCompare(currentDependenciesRef.current, dependencies)) {
-		currentDependenciesRef.current = dependencies;
-	}
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-	useEffect(callback, [currentDependenciesRef.current]);
-}
-
-function deepCompare(a: any[], b: any[]): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export const useCommand = <T>(
@@ -29,12 +15,15 @@ export const useCommand = <T>(
 	const [error, setError] = useState<string | undefined>();
 	const [loading, setLoading] = useState(true);
 
-	useDeepCompareEffect(() => {
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	useEffect(() => {
+		let cancelled = false;
 		const executeCommand = async () => {
 			setLoading(true);
 			setError(undefined);
 
 			try {
+				if (cancelled) return;
 				const result = await command(...args);
 				if (result.status !== "ok") {
 					setError(result.error as string);
@@ -47,11 +36,14 @@ export const useCommand = <T>(
 				setError(String(err));
 				setCommandValue(undefined);
 			} finally {
-				setLoading(false);
+				if (!cancelled) setLoading(false);
 			}
 		};
 
 		executeCommand();
+		return () => {
+			cancelled = true;
+		};
 	}, [command, ...args]);
 
 	return { data: commandValue, error, loading };
