@@ -66,6 +66,7 @@ pub struct CourseSection {
 
 #[derive(Serialize, Deserialize, Type, Clone, sqlx::Type)]
 pub struct CourseSectionItem {
+	pub id: u32,
 	pub name: String,
 	pub content_type: ContentType,
 	// #[sqlx(skip)]

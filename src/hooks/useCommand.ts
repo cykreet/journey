@@ -27,7 +27,7 @@ export const useCommand = <T>(
 ): Command<T> => {
 	const [commandValue, setCommandValue] = useState<T | undefined>();
 	const [error, setError] = useState<string | undefined>();
-	const [loading, setLoading] = useState(false);
+	const [loading, setLoading] = useState(true);
 
 	useDeepCompareEffect(() => {
 		const executeCommand = async () => {

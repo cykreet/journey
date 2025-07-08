@@ -4,10 +4,10 @@ use tauri_plugin_http::reqwest::{self};
 
 // todo: probably gonna need more robust methods for different versions/platforms
 pub mod service_methods {
-	pub const GET_NOTIFICATIONS: &str = "message_popup_get_popup_notifications";
 	pub const GET_COURSES: &str = "theme_remui_get_myoverviewcourses";
-	pub const GET_COURSE_ENROL_CONTENT: &str = "theme_remui_enrol_get_course_content";
-	pub const SESSION_TOUCH: &str = "core_session_touch";
+	pub const GET_COURSE_STATE: &str = "core_courseformat_get_state";
+	// pub const GET_NOTIFICATIONS: &str = "message_popup_get_popup_notifications";
+	// pub const SESSION_TOUCH: &str = "core_session_touch";
 }
 
 #[derive(Debug, Deserialize)]

@@ -8,8 +8,8 @@ export const Dialog = ({
 	loading,
 	children,
 	title,
-}: { open: boolean; title?: string; loading?: boolean; children: React.ReactNode }) => {
-	if (!open) return null;
+}: { open?: boolean; title?: string; loading?: boolean; children: React.ReactNode }) => {
+	if (open === false) return null;
 
 	return (
 		<div className="w-full h-full flex justify-center items-center inset-0 fixed bg-wood-700/50">

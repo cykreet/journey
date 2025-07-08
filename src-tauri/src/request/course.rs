@@ -30,21 +30,24 @@ struct ServiceCourse {
 }
 
 #[derive(Default, Deserialize)]
-struct ServiceCourseContent {
-	sections: String,
+struct ServiceCourseState {
+	section: Vec<ServiceCourseStateSection>,
+	cm: Vec<ServiceCourseStateModule>,
 }
 
-#[derive(Deserialize)]
-struct ServiceCourseSection {
-	id: u32,
-	name: String,
-	activities: Vec<ServiceCourseSectionActivity>,
+#[derive(Default, Deserialize)]
+struct ServiceCourseStateSection {
+	id: String,
+	title: String,
 }
 
-#[derive(Deserialize)]
-struct ServiceCourseSectionActivity {
+#[derive(Default, Deserialize)]
+struct ServiceCourseStateModule {
+	id: String,
 	name: String,
-	modtype: String,
+	sectionid: String,
+	// describes the type of the module, i.e. forum, page, etc
+	module: String,
 }
 
 #[tauri::command]
@@ -78,7 +81,7 @@ pub async fn get_course_sections(
 			let auth_store = app_handle.store(store_keys::AUTH).unwrap();
 			let client = reqwest::Client::new();
 			let service_method =
-				ServiceMethod::new(0, service_methods::GET_COURSE_ENROL_CONTENT).with_courseid(course_id);
+				ServiceMethod::new(0, service_methods::GET_COURSE_STATE).with_courseid(course_id);
 
 			let host = auth_store.get(auth_keys::MOODLE_HOST).unwrap();
 			let session_cookie = auth_store.get(auth_keys::MOODLE_SESSION).unwrap();
@@ -108,27 +111,32 @@ pub async fn get_course_sections(
 				return Err(message);
 			}
 
-			let service_body: Vec<ServiceResponse<ServiceCourseContent>> =
-				serde_json::from_str(&body).unwrap();
+			let service_body = serde_json::from_str::<Vec<ServiceResponse<String>>>(&body).unwrap();
 			let service_parsed = service_body
 				.into_iter()
 				.next()
 				.unwrap()
 				.data
 				.unwrap_or_default();
-			let sections = serde_json::from_str::<Vec<ServiceCourseSection>>(&service_parsed.sections)
-				.unwrap()
+			// individual section items or "cm" (course modules) are stored in a separate array from
+			// the sections, so we need to merge them (see ServiceCourseState)
+			let course_state = serde_json::from_str::<ServiceCourseState>(&service_parsed).unwrap();
+			let sections = course_state
+				.section
 				.iter()
 				.map(|section| CourseSection {
-					id: section.id,
-					name: section.name.clone(),
+					id: section.id.parse().unwrap(),
+					name: section.title.clone(),
 					course_id: course_id,
 					items: Json::from(
-						section
-							.activities
+						course_state
+							.cm
 							.iter()
+							.filter(|cm| cm.sectionid == section.id)
 							.map(|activity| CourseSectionItem {
+								id: activity.id.parse().unwrap(),
 								name: activity.name.clone(),
+								// todo: map from module type
 								content_type: ContentType::Resource,
 							})
 							.collect::<Vec<_>>(),
@@ -142,8 +150,7 @@ pub async fn get_course_sections(
 				.pool(&pool)
 				.insert_into(&sections)
 				.await
-				.unwrap();
-
+				.map_err(|error| error.to_string())?;
 			Ok(())
 		},
 	)
@@ -229,7 +236,7 @@ pub async fn get_user_courses(
 				.pool(&pool)
 				.insert_into(&courses)
 				.await
-				.unwrap();
+				.map_err(|error| error.to_string())?;
 
 			Ok(())
 		},

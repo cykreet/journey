@@ -2,19 +2,20 @@ use std::future::Future;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use specta::Type;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_store::StoreExt;
 
 use crate::store_keys;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Type, Debug)]
 pub enum SyncStatus {
 	Success,
 	Failed(String),
 	Pending,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Type)]
 pub struct SyncTask {
 	pub id: String,
 	pub name: String,
@@ -22,13 +23,6 @@ pub struct SyncTask {
 	pub sync_status: SyncStatus,
 	pub error: Option<String>,
 }
-
-// name
-// last_sync
-// sync_status
-// error
-
-// todo: no idea if this works
 
 pub async fn revalidate_task<F, Fut, T>(
 	app: &AppHandle,
@@ -73,6 +67,8 @@ where
 		Ok(_) => SyncStatus::Success,
 		Err(error) => SyncStatus::Failed(error),
 	};
+
+	println!("Sync task {} finished with status {:?}", sync_id, status);
 
 	sync_store.set(sync_id, json!(now));
 	app

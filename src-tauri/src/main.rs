@@ -9,6 +9,7 @@ use tauri_specta::{collect_commands, Builder};
 use self::auth::{get_user_session, open_login_window, AuthState, AuthStatus};
 use self::entities::{ContentType, Course, CourseSection};
 use self::request::course::{get_course_sections, get_user_course, get_user_courses};
+use self::sync::SyncTask;
 
 mod auth;
 mod database;
@@ -34,6 +35,7 @@ pub fn main() {
 		.typ::<Course>()
 		.typ::<ContentType>()
 		.typ::<CourseSection>()
+		.typ::<SyncTask>()
 		.typ::<AuthStatus>();
 
 	let ts_exporter = Typescript::new()

@@ -2,18 +2,22 @@ import type React from "react";
 import { useRoute } from "wouter";
 import IconSpeaker from "~icons/tabler/device-speaker-filled";
 import { MenuLayout } from "./menu/menu-layout";
-import type { MenuSidebarItem } from "./menu/menu-sidebar";
+import type { MenuSidebarSection } from "./menu/menu-sidebar";
 import { Sidebar } from "./sidebar";
 
 export const GlobalLayout = ({ children }: { children: React.ReactNode }) => {
 	const [isCourseRoute] = useRoute("/course/:id?/:page?");
 
-	const homeMenuItems: MenuSidebarItem[] = [
+	const homeMenuItems: MenuSidebarSection[] = [
 		{
-			id: 1,
-			icon: IconSpeaker,
-			name: "Announcements",
-			href: "/announcements",
+			subItems: [
+				{
+					// id: 1,
+					icon: IconSpeaker,
+					name: "Announcements",
+					href: "/announcements",
+				},
+			],
 		},
 	];
 
@@ -22,7 +26,7 @@ export const GlobalLayout = ({ children }: { children: React.ReactNode }) => {
 			<Sidebar />
 			<div className="w-full">
 				{(isCourseRoute == false && (
-					<MenuLayout header={"Journey"} sidebarItems={homeMenuItems}>
+					<MenuLayout header={"Journey"} sidebarSections={homeMenuItems}>
 						<div>{children}</div>
 					</MenuLayout>
 				)) || <div>{children}</div>}

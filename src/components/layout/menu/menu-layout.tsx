@@ -1,19 +1,20 @@
 import IconAlignJustified from "~icons/tabler/align-justified";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { MenuSidebar, type MenuSidebarItem } from "./menu-sidebar";
+import { MenuSidebar, type MenuSidebarSection } from "./menu-sidebar";
 
 export interface MenuLayoutProps {
 	header: React.ReactNode;
-	sidebarItems?: MenuSidebarItem[];
-	tocItems?: MenuSidebarItem[];
+	sidebarSections?: MenuSidebarSection[];
+	loading?: boolean;
+	tocItems?: MenuSidebarSection[];
 	children?: React.ReactNode;
 }
 
-export const MenuLayout = ({ children, header, tocItems, sidebarItems }: MenuLayoutProps) => {
+export const MenuLayout = ({ children, header, tocItems, sidebarSections }: MenuLayoutProps) => {
 	return (
 		<PanelGroup className="flex flex-row w-full max-h-svh space-x-20" direction={"horizontal"} autoSaveId="sidebar">
 			<Panel className="m-0" defaultSize={20} minSize={10} maxSize={25}>
-				<MenuSidebar header={header} items={sidebarItems} />
+				<MenuSidebar header={header} sections={sidebarSections} />
 			</Panel>
 			<PanelResizeHandle />
 			<Panel className="container mx-auto h-full">
