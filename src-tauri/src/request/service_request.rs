@@ -25,23 +25,33 @@ pub struct ServiceMethod<'a> {
 
 #[derive(Serialize, Deserialize)]
 pub struct ServiceMethodArgs<'a> {
-	// these are named as they would be defined in the request
 	#[serde(skip_serializing_if = "Option::is_none")]
 	limit: Option<u32>,
+
 	#[serde(skip_serializing_if = "Option::is_none")]
 	offset: Option<u32>,
+
+	#[serde(rename = "useridto")]
 	#[serde(skip_serializing_if = "Option::is_none")]
-	useridto: Option<&'a str>,
+	user_id_to: Option<&'a str>,
+
 	#[serde(skip_serializing_if = "Option::is_none")]
 	classification: Option<&'a str>,
+
+	#[serde(rename = "customfieldname")]
 	#[serde(skip_serializing_if = "Option::is_none")]
-	customfieldname: Option<&'a str>,
+	custom_field_name: Option<&'a str>,
+
+	#[serde(rename = "customfieldvalue")]
 	#[serde(skip_serializing_if = "Option::is_none")]
-	customfieldvalue: Option<&'a str>,
+	custom_field_value: Option<&'a str>,
+
 	#[serde(skip_serializing_if = "Option::is_none")]
 	sort: Option<&'a str>,
+
+	#[serde(rename = "courseid")]
 	#[serde(skip_serializing_if = "Option::is_none")]
-	courseid: Option<u32>,
+	course_id: Option<u32>,
 }
 
 impl<'a> ServiceMethod<'a> {
@@ -52,12 +62,12 @@ impl<'a> ServiceMethod<'a> {
 			args: ServiceMethodArgs {
 				limit: None,
 				offset: None,
-				useridto: None,
+				user_id_to: None,
 				classification: None,
-				customfieldname: None,
-				customfieldvalue: None,
+				custom_field_name: None,
+				custom_field_value: None,
 				sort: None,
-				courseid: None,
+				course_id: None,
 			},
 		}
 	}
@@ -98,7 +108,7 @@ impl<'a> ServiceMethod<'a> {
 	// }
 
 	pub fn with_courseid(mut self, courseid: u32) -> Self {
-		self.args.courseid = Some(courseid);
+		self.args.course_id = Some(courseid);
 		self
 	}
 }

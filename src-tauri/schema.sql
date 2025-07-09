@@ -9,5 +9,6 @@ CREATE TABLE `course_section` (
 	`id` INTEGER PRIMARY KEY,
 	`course_id` INT(20) NOT NULL,
 	`name` VARCHAR(100) NOT NULL,
-	`items` TEXT
+	`updated_at` INT(4) NOT NULL DEFAULT strftime('%s', 'now'),
+	`items` TEXT,
 )

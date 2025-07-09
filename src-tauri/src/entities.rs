@@ -4,21 +4,21 @@ use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use sqlx::{types::Json, FromRow, Sqlite};
+use sqlx::{types::Json, FromRow};
 
 pub trait TableLike {
 	fn table_name() -> String;
-	fn column_names() -> Vec<String>;
-	fn bind_to_query<'q>(
-		&'q self,
-		query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
-	) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>;
+	fn columns() -> Vec<String>;
+	// fn bind_to_query<'q>(
+	// 	&'q self,
+	// 	query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+	// ) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, sqlx::Type)]
 pub enum ContentType {
-	Markup,
-	Resource,
+	Page,
+	Forum,
 }
 
 #[derive(Serialize, Deserialize, Type, FromRow, Clone)]
@@ -34,7 +34,7 @@ impl TableLike for Course {
 		"course".to_string()
 	}
 
-	fn column_names() -> Vec<String> {
+	fn columns() -> Vec<String> {
 		vec![
 			"id".to_string(),
 			"name".to_string(),
@@ -43,16 +43,16 @@ impl TableLike for Course {
 		]
 	}
 
-	fn bind_to_query<'q>(
-		&'q self,
-		query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
-	) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
-		query
-			.bind(&self.id)
-			.bind(&self.name)
-			.bind(&self.colour)
-			.bind(&self.icon)
-	}
+	// fn bind_to_query<'q>(
+	// 	&'q self,
+	// 	query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+	// ) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
+	// 	query
+	// 		.bind(&self.id)
+	// 		.bind(&self.name)
+	// 		.bind(&self.colour)
+	// 		.bind(&self.icon)
+	// }
 }
 
 #[derive(Serialize, Deserialize, Type, FromRow, Clone)]
@@ -69,9 +69,9 @@ pub struct CourseSectionItem {
 	pub id: u32,
 	pub name: String,
 	pub content_type: ContentType,
+	pub updated_at: Option<u32>,
 	// #[sqlx(skip)]
-	// sync_hash: u64,
-	// updated_at: String,
+	// pub sync_hash: u64,
 }
 
 impl TableLike for CourseSection {
@@ -79,7 +79,7 @@ impl TableLike for CourseSection {
 		"course_section".to_string()
 	}
 
-	fn column_names() -> Vec<String> {
+	fn columns() -> Vec<String> {
 		vec![
 			"id".to_string(),
 			"name".to_string(),
@@ -88,16 +88,25 @@ impl TableLike for CourseSection {
 		]
 	}
 
-	fn bind_to_query<'q>(
-		&'q self,
-		query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
-	) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
-		query
-			.bind(&self.id)
-			.bind(&self.name)
-			.bind(&self.course_id)
-			.bind(&self.items)
-	}
+	// fn to_values(&self) -> Vec<Box<dyn Encode<'_, Sqlite> + Send + Sync + '_>> {
+	// 	vec![
+	// 		Box::new(self.id),
+	// 		Box::new(&self.name),
+	// 		Box::new(&self.course_id),
+	// 		Box::new(serde_json::to_string(&self.items).unwrap()),
+	// 	]
+	// }
+
+	// fn bind_to_query<'q>(
+	// 	&'q self,
+	// 	query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+	// ) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
+	// 	query
+	// 		.bind(&self.id)
+	// 		.bind(&self.name)
+	// 		.bind(&self.course_id)
+	// 		.bind(&self.items)
+	// }
 }
 
 // impl Hash for CourseItem {

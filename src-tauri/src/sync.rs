@@ -1,3 +1,4 @@
+use core::sync;
 use std::future::Future;
 
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,9 @@ pub struct SyncTask {
 	pub error: Option<String>,
 }
 
+// 3 minutes
+const SYNC_TIMEOUT: u64 = 60 * 3;
+
 pub async fn revalidate_task<F, Fut, T>(
 	app: &AppHandle,
 	sync_id: &str,
@@ -32,7 +36,7 @@ pub async fn revalidate_task<F, Fut, T>(
 ) -> ()
 where
 	F: FnOnce(AppHandle) -> Fut + Send + 'static,
-	Fut: Future<Output = Result<T, String>> + Send + 'static,
+	Fut: Future<Output = Result<T, Box<dyn std::error::Error>>> + Send + 'static,
 	T: Send + 'static,
 {
 	let sync_store = app.store(store_keys::SYNC).unwrap();
@@ -43,8 +47,7 @@ where
 		.as_secs();
 	if sync_entry.is_some() {
 		let last_sync: u64 = sync_entry.unwrap().as_u64().unwrap();
-		// 3 minutes
-		if now - last_sync < 60 * 3 {
+		if now - last_sync < SYNC_TIMEOUT {
 			return;
 		}
 	}
@@ -62,15 +65,22 @@ where
 		)
 		.unwrap();
 
-	let result = task_fn(app.clone()).await;
+	let result = task_fn(app.clone())
+		.await
+		.map_err(|error| error.to_string());
 	let status = match result {
-		Ok(_) => SyncStatus::Success,
-		Err(error) => SyncStatus::Failed(error),
+		Ok(_) => {
+			sync_store.set(sync_id, json!(now));
+			SyncStatus::Success
+		}
+		Err(error) => {
+			// sync_store.set(sync_id, json!(now + (SYNC_TIMEOUT / 2)));
+			SyncStatus::Failed(error)
+		}
 	};
 
 	println!("Sync task {} finished with status {:?}", sync_id, status);
 
-	sync_store.set(sync_id, json!(now));
 	app
 		.emit(
 			"sync_task",

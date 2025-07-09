@@ -9,7 +9,7 @@ use tauri_plugin_store::StoreExt;
 use crate::{
 	auth::auth_keys,
 	database::DatabaseState,
-	entities::{ContentType, Course, CourseSection, CourseSectionItem},
+	entities::{ContentType, Course, CourseSection, CourseSectionItem, TableLike},
 	request::service_request::{
 		build_service_request, service_methods, ServiceMethod, ServiceResponse,
 	},
@@ -26,13 +26,15 @@ struct ServiceCourses {
 #[derive(Deserialize)]
 struct ServiceCourse {
 	id: u32,
-	fullname: String,
+	#[serde(rename = "fullname")]
+	full_name: String,
 }
 
 #[derive(Default, Deserialize)]
 struct ServiceCourseState {
 	section: Vec<ServiceCourseStateSection>,
-	cm: Vec<ServiceCourseStateModule>,
+	#[serde(rename = "cm")]
+	module: Vec<ServiceCourseStateModule>,
 }
 
 #[derive(Default, Deserialize)]
@@ -45,7 +47,8 @@ struct ServiceCourseStateSection {
 struct ServiceCourseStateModule {
 	id: String,
 	name: String,
-	sectionid: String,
+	#[serde(rename = "sectionid")]
+	section_id: String,
 	// describes the type of the module, i.e. forum, page, etc
 	module: String,
 }
@@ -56,14 +59,16 @@ pub async fn get_user_course(
 	state: tauri::State<'_, DatabaseState>,
 	course_id: u32,
 ) -> Result<Course, String> {
+	// todo: join course sections, joins are not currently supported by SqlQuery
+	// and would be a decent amount of work outside of just writing the query
 	let pool = &state.0;
-	// todo: join course sections
 	let course = SqlQuery::new()
-		.pool(&pool)
-		.select_where::<Course>("id = ?", &vec![course_id.to_string()])
+		.select(Course::table_name())
+		.where_column("id", &course_id.to_string())
+		.fetch_one::<Course, _>(pool)
 		.await
 		.map_err(|error| error.to_string())?;
-	Ok(course.first().unwrap().clone())
+	Ok(course)
 }
 
 #[tauri::command]
@@ -102,13 +107,13 @@ pub async fn get_course_sections(
 					course_id = course_id
 				);
 
-				return Err(message);
+				return Err(message.into());
 			}
 
 			let body = response.text().await.unwrap();
 			if body.contains("errorcode") {
 				let message = format!("Could not get user courses: {}", body);
-				return Err(message);
+				return Err(message.into());
 			}
 
 			let service_body = serde_json::from_str::<Vec<ServiceResponse<String>>>(&body).unwrap();
@@ -130,27 +135,30 @@ pub async fn get_course_sections(
 					course_id: course_id,
 					items: Json::from(
 						course_state
-							.cm
+							.module
 							.iter()
-							.filter(|cm| cm.sectionid == section.id)
+							.filter(|cm| cm.section_id == section.id)
 							.map(|activity| CourseSectionItem {
 								id: activity.id.parse().unwrap(),
 								name: activity.name.clone(),
+								updated_at: None,
 								// todo: map from module type
-								content_type: ContentType::Resource,
+								content_type: ContentType::Page,
 							})
 							.collect::<Vec<_>>(),
 					),
 				})
-				.collect();
+				.collect::<Vec<_>>();
 
 			let state = app_handle.state::<DatabaseState>();
-			let pool = &state.0;
+			let mut transaction = state.0.begin().await?;
 			SqlQuery::new()
-				.pool(&pool)
 				.insert_into(&sections)
+				.execute(transaction.as_mut())
 				.await
 				.map_err(|error| error.to_string())?;
+
+			transaction.commit().await?;
 			Ok(())
 		},
 	)
@@ -158,8 +166,9 @@ pub async fn get_course_sections(
 
 	let pool = &state.0;
 	let sections = SqlQuery::new()
-		.pool(&pool)
-		.select_where::<CourseSection>("course_id = ?", &vec![course_id.to_string()])
+		.select(CourseSection::table_name())
+		.where_column("course_id", &course_id.to_string())
+		.fetch_all::<CourseSection, _>(pool)
 		.await
 		.map_err(|error| error.to_string())?;
 	Ok(sections)
@@ -203,13 +212,13 @@ pub async fn get_user_courses(
 					response.text().await.unwrap()
 				);
 
-				return Err(message);
+				return Err(message.into());
 			}
 
 			let body = response.text().await.unwrap();
 			if body.contains("errorcode") {
 				let message = format!("Could not get user courses: {}", body);
-				return Err(message);
+				return Err(message.into());
 			}
 
 			let service_body: Vec<ServiceResponse<ServiceCourses>> = serde_json::from_str(&body).unwrap();
@@ -224,20 +233,20 @@ pub async fn get_user_courses(
 				.iter()
 				.map(|course| Course {
 					id: course.id,
-					name: course.fullname.clone(),
+					name: course.full_name.clone(),
 					colour: None,
 					icon: None,
 				})
 				.collect();
 
 			let state = app_handle.state::<DatabaseState>();
-			let pool = &state.0;
+			let mut transaction = state.0.begin().await?;
 			SqlQuery::new()
-				.pool(&pool)
 				.insert_into(&courses)
-				.await
-				.map_err(|error| error.to_string())?;
+				.execute(transaction.as_mut())
+				.await?;
 
+			transaction.commit().await?;
 			Ok(())
 		},
 	)
@@ -245,8 +254,8 @@ pub async fn get_user_courses(
 
 	let pool = &state.0;
 	let courses = SqlQuery::new()
-		.pool(&pool)
-		.select::<Course>()
+		.select(Course::table_name())
+		.fetch_all::<Course, _>(pool)
 		.await
 		.map_err(|error| error.to_string())?;
 	Ok(courses)

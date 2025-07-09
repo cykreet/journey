@@ -1,4 +1,7 @@
-use std::{env::set_var, fs::create_dir_all};
+use std::{
+	env::{self, set_var},
+	fs::{create_dir_all, remove_file},
+};
 
 use sqlx::{
 	sqlite::{SqliteConnectOptions, SqliteJournalMode},
@@ -23,6 +26,12 @@ impl Database {
 		create_dir_all(&app_dir)?;
 		let db_path = app_dir.join("journey.db");
 		set_var("DATABASE_URL", format!("sqlite://{}", db_path.display()));
+
+		// true for dev command or build --debug, false otherwise
+		// https://tauri.app/reference/environment-variables/
+		if env::var("TAURI_ENV_DEBUG").is_ok() {
+			remove_file(&db_path).ok();
+		}
 
 		let connection_options = SqliteConnectOptions::new()
 			.filename(&db_path)

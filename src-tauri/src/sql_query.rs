@@ -1,95 +1,110 @@
-use sqlx::{sqlite::SqliteQueryResult, Error, Pool, Sqlite};
+use sqlx::{sqlite::SqliteQueryResult, Error, QueryBuilder, Sqlite};
 
 use crate::entities::TableLike;
 
 pub struct SqlQuery<'a> {
-	pool: Option<&'a Pool<Sqlite>>,
+	builder: QueryBuilder<'a, Sqlite>,
+	// values: Vec<&'a dyn sqlx::Encode<'a, Sqlite>>,
 }
 
+// inspired by kali (https://github.com/sylv/kali/tree/main), will probably
+// replace this when its ready
 impl<'a> SqlQuery<'a> {
 	pub fn new() -> Self {
-		return Self { pool: None };
+		return Self {
+			builder: QueryBuilder::default(),
+		};
 	}
 
-	pub fn pool(&mut self, pool: &'a Pool<Sqlite>) -> &Self {
-		self.pool = Some(pool);
+	pub fn select(mut self, table: String) -> Self {
+		if self.builder.sql().len() > 0 {
+			panic!("select can't be chained with previous queries");
+		}
+
+		let query_str = format!("SELECT * FROM {}", table);
+		self.builder.push(query_str);
 		self
 	}
 
-	pub async fn select<T>(&self) -> Result<Vec<T>, Error>
+	pub fn where_column<T>(mut self, column: &str, value: &'a T) -> Self
 	where
-		T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + TableLike + Send + Unpin,
+		T: sqlx::Encode<'a, Sqlite> + sqlx::Type<Sqlite>,
 	{
-		if self.pool.is_none() {
-			panic!("pool not set");
-		}
-
-		let pool = self.pool.unwrap();
-		let query_str = format!("SELECT * FROM {}", T::table_name());
-		let rows = sqlx::query_as(&query_str).fetch_all(pool).await?;
-
-		Ok(rows)
+		self.builder.push(format!(" WHERE {} = ", column));
+		// pushes placeholder ? and binds value
+		self.builder.push_bind(value);
+		self
 	}
 
-	pub async fn select_where<T>(
-		&self,
-		where_clause: &str,
-		args: &Vec<String>,
-	) -> Result<Vec<T>, Error>
-	where
-		T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + TableLike + Send + Unpin,
-	{
-		if self.pool.is_none() {
-			panic!("pool not set");
-		}
-
-		let pool = self.pool.unwrap();
-		let table_name = T::table_name();
-		let query_str = format!("SELECT * FROM {} WHERE {}", table_name, where_clause);
-		let mut query = sqlx::query_as::<_, T>(&query_str);
-		for arg in args {
-			query = query.bind(arg);
-		}
-
-		query.fetch_all(pool).await
-	}
-
-	pub async fn insert_into<T>(&self, rows: &Vec<T>) -> Result<SqliteQueryResult, Error>
+	pub fn insert_into<T>(mut self, rows: &'a Vec<T>) -> Self
 	where
 		T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + TableLike,
 	{
-		if self.pool.is_none() {
-			panic!("pool not set");
+		if self.builder.sql().len() > 0 {
+			panic!("insert_into can't be chained with previous queries");
 		}
 
+		// let values_per_row = column_names.len();
+		// let placeholder_row = format!(
+		// 	"({})",
+		// 	(0..values_per_row)
+		// 		.map(|_| "?")
+		// 		.collect::<Vec<_>>()
+		// 		.join(", ")
+		// );
+
+		// let placeholder_rows: Vec<String> = (0..rows.len()).map(|_| placeholder_row.clone()).collect();
 		let table_name = T::table_name();
-		let column_names = T::column_names();
-		let values_per_row = column_names.len();
-
-		let placeholder_row = format!(
-			"({})",
-			(0..values_per_row)
-				.map(|_| "?")
-				.collect::<Vec<_>>()
-				.join(", ")
-		);
-
-		let placeholder_rows: Vec<String> = (0..rows.len()).map(|_| placeholder_row.clone()).collect();
-
-		// todo: doubt all queries would want OR REPLACE here
+		let column_names = T::columns();
 		let query_str = format!(
-			"INSERT OR REPLACE INTO {} ({}) VALUES {}",
+			"INSERT OR REPLACE INTO {} ({})",
 			table_name,
 			column_names.join(", "),
-			placeholder_rows.join(", ")
+			// placeholder_rows.join(", ")
 		);
 
-		let pool = self.pool.unwrap();
-		let mut query = sqlx::query(&query_str);
-		for row in rows {
-			query = row.bind_to_query(query);
-		}
+		self.builder.push(query_str);
+		// todo
+		self.builder.push_values(rows.iter(), |b, row| {});
 
-		query.execute(pool).await
+		self
+	}
+
+	pub async fn execute<'e, U>(self, executor: U) -> Result<SqliteQueryResult, Error>
+	where
+		U: 'e + sqlx::Executor<'e, Database = sqlx::Sqlite>,
+	{
+		let query = self.builder.sql();
+		println!("query: {}", query);
+		let query = sqlx::query(query);
+		query.execute(executor).await
+	}
+
+	pub async fn fetch_one<'e, T, U>(self, executor: U) -> Result<T, Error>
+	where
+		T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + TableLike,
+		U: 'e + sqlx::Executor<'e, Database = sqlx::Sqlite>,
+	{
+		let query = self.builder.sql();
+		let query = sqlx::query(query);
+		query
+			.fetch_one(executor)
+			.await
+			.and_then(|row| T::from_row(&row))
+	}
+
+	pub async fn fetch_all<'e, T, U>(self, executor: U) -> Result<Vec<T>, Error>
+	where
+		T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + TableLike,
+		U: 'e + sqlx::Executor<'e, Database = sqlx::Sqlite>,
+	{
+		let query = self.builder.sql();
+		let query = sqlx::query(query);
+		query.fetch_all(executor).await.and_then(|rows| {
+			rows
+				.into_iter()
+				.map(|row| T::from_row(&row))
+				.collect::<Result<Vec<_>, _>>()
+		})
 	}
 }
