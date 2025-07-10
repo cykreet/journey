@@ -64,7 +64,7 @@ pub async fn get_user_course(
 	let pool = &state.0;
 	let course = SqlQuery::new()
 		.select(Course::table_name())
-		.where_column("id", &course_id.to_string())
+		.where_column("id", course_id.to_string())
 		.fetch_one::<Course, _>(pool)
 		.await
 		.map_err(|error| error.to_string())?;
@@ -137,10 +137,10 @@ pub async fn get_course_sections(
 						course_state
 							.module
 							.iter()
-							.filter(|cm| cm.section_id == section.id)
-							.map(|activity| CourseSectionItem {
-								id: activity.id.parse().unwrap(),
-								name: activity.name.clone(),
+							.filter(|module| module.section_id == section.id)
+							.map(|module| CourseSectionItem {
+								id: module.id.parse().unwrap(),
+								name: module.name.clone(),
 								updated_at: None,
 								// todo: map from module type
 								content_type: ContentType::Page,
@@ -167,7 +167,7 @@ pub async fn get_course_sections(
 	let pool = &state.0;
 	let sections = SqlQuery::new()
 		.select(CourseSection::table_name())
-		.where_column("course_id", &course_id.to_string())
+		.where_column("course_id", course_id.to_string())
 		.fetch_all::<CourseSection, _>(pool)
 		.await
 		.map_err(|error| error.to_string())?;

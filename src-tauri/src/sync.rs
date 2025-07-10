@@ -1,4 +1,3 @@
-use core::sync;
 use std::future::Future;
 
 use serde::{Deserialize, Serialize};

@@ -2,6 +2,7 @@ extern crate proc_macro;
 
 use std::hash::{Hash, Hasher};
 
+use kali::builder::value::Value;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use sqlx::{types::Json, FromRow};
@@ -9,10 +10,7 @@ use sqlx::{types::Json, FromRow};
 pub trait TableLike {
 	fn table_name() -> String;
 	fn columns() -> Vec<String>;
-	// fn bind_to_query<'q>(
-	// 	&'q self,
-	// 	query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
-	// ) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>;
+	fn to_values(&self) -> Vec<Value>;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type, sqlx::Type)]
@@ -43,16 +41,14 @@ impl TableLike for Course {
 		]
 	}
 
-	// fn bind_to_query<'q>(
-	// 	&'q self,
-	// 	query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
-	// ) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
-	// 	query
-	// 		.bind(&self.id)
-	// 		.bind(&self.name)
-	// 		.bind(&self.colour)
-	// 		.bind(&self.icon)
-	// }
+	fn to_values(&self) -> Vec<Value> {
+		vec![
+			self.id.into(),
+			self.name.clone().into(),
+			self.colour.clone().into(),
+			self.icon.clone().into(),
+		]
+	}
 }
 
 #[derive(Serialize, Deserialize, Type, FromRow, Clone)]
@@ -88,25 +84,16 @@ impl TableLike for CourseSection {
 		]
 	}
 
-	// fn to_values(&self) -> Vec<Box<dyn Encode<'_, Sqlite> + Send + Sync + '_>> {
-	// 	vec![
-	// 		Box::new(self.id),
-	// 		Box::new(&self.name),
-	// 		Box::new(&self.course_id),
-	// 		Box::new(serde_json::to_string(&self.items).unwrap()),
-	// 	]
-	// }
-
-	// fn bind_to_query<'q>(
-	// 	&'q self,
-	// 	query: sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
-	// ) -> sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
-	// 	query
-	// 		.bind(&self.id)
-	// 		.bind(&self.name)
-	// 		.bind(&self.course_id)
-	// 		.bind(&self.items)
-	// }
+	fn to_values(&self) -> Vec<Value> {
+		vec![
+			self.id.into(),
+			self.name.clone().into(),
+			self.course_id.into(),
+			serde_json::to_string(&self.items.0)
+				.unwrap_or_else(|_| "[]".to_string())
+				.into(),
+		]
+	}
 }
 
 // impl Hash for CourseItem {

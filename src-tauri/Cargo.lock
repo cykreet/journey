@@ -2122,6 +2122,7 @@ checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
 name = "journey"
 version = "0.1.0"
 dependencies = [
+ "kali",
  "select",
  "serde",
  "serde_json",
@@ -2168,6 +2169,28 @@ checksum = "5dea2b27dd239b2556ed7a25ba842fe47fd602e7fc7433c2a8d6106d4d9edd70"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "kali"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59201d7bde5ea86e90b0be9dea7c74e87e66df02885cd5aaf33c46aab8aef1bc"
+dependencies = [
+ "kali-macros",
+ "sqlx",
+ "tracing",
+]
+
+[[package]]
+name = "kali-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0b3de5afab857b91b57bf3998d9cee55aceb107b2eb1aae0f93a5ac4c7f8cd8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
 ]
 
 [[package]]
