@@ -1,16 +1,20 @@
 import "./main.css";
 import { Route, Switch } from "wouter";
-import { Index } from "./views";
-import { Course } from "./views/course";
+import { Home } from "./pages/home";
+import { Course } from "./pages/course";
 import { GlobalLayout } from "./components/layout/global-layout";
-import { Announcements } from "./views/announcements";
+import { Announcements } from "./pages/announcements";
+import { Index } from "./pages";
 
 export function App() {
 	return (
 		<Switch>
+			<Route path="/">
+				<Index />
+			</Route>
 			<GlobalLayout>
-				<Route path="/">
-					<Index />
+				<Route path="/home">
+					<Home />
 				</Route>
 				<Route path="/announcements">
 					<Announcements />

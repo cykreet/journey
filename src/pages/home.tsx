@@ -1,11 +1,11 @@
 import { commands } from "../bindings";
 import { useCommand } from "../hooks/useCommand";
 
-export const Index = () => {
+export const Home = () => {
 	const userSession = useCommand(commands.getUserSession);
 
 	return (
-		<div>
+		<div className="flex flex-col">
 			<span>session: {userSession.data ?? "none"}</span>
 		</div>
 	);

@@ -2,6 +2,7 @@ import React from "react";
 import { Loading } from "./loading";
 import IconCircleCheckFilled from "~icons/tabler/circle-check-filled";
 import IconCircleXFilled from "~icons/tabler/circle-x-filled";
+import { Card } from "./card";
 
 export const Dialog = ({
 	open,
@@ -13,14 +14,14 @@ export const Dialog = ({
 
 	return (
 		<div className="w-full h-full flex justify-center items-center inset-0 fixed bg-wood-700/50">
-			<div className="bg-wood-700 border-b-6 border sweep-up border-ivory/10 border-b-ivory/10 min-h-20 rounded-lg px-5 py-4 space-y-2 flex flex-col w-md">
-				{(loading && <Loading />) || (
+			<Card className="sweep-up min-h-20 space-y-2 flex flex-col w-md">
+				{(loading && <Loading decorated iconClassName="w-8 h-8" />) || (
 					<React.Fragment>
 						{title && <span className="font-bold">{title}</span>}
 						{children}
 					</React.Fragment>
 				)}
-			</div>
+			</Card>
 		</div>
 	);
 };
