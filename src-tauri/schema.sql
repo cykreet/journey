@@ -11,4 +11,17 @@ CREATE TABLE `course_section` (
 	`name` VARCHAR(100) NOT NULL,
 	`updated_at` INT(4) DEFAULT (strftime('%s', 'now')),
 	`items` TEXT
-)
+);
+
+CREATE TABLE `course_item` (
+	`id` INTEGER PRIMARY KEY,
+	`name` VARCHAR(100) NOT NULL,
+	`updated_at` INT(4) DEFAULT (strftime('%s', 'now')),
+	`content` TEXT
+);
+
+CREATE TABLE `course_blob` (
+	`id` INTEGER PRIMARY KEY,
+	`type` VARCHAR(10) NOT NULL,
+	`path` VARCHAR(100) NOT NULL
+);

@@ -7,8 +7,11 @@ pub struct SqlQuery<'a> {
 	builder: QueryBuilder<'a, Sqlite>,
 }
 
-// inspired by kali (https://github.com/sylv/kali/tree/main), will probably
-// replace this when its ready
+pub enum Filter<T> {
+	Equal(String, T),
+	NotEqual(String, T),
+}
+
 impl<'a> SqlQuery<'a> {
 	pub fn new() -> Self {
 		return Self {
@@ -26,42 +29,45 @@ impl<'a> SqlQuery<'a> {
 		self
 	}
 
-	pub fn where_column<T>(mut self, column: &str, value: T) -> Self
+	pub fn filter<T>(mut self, filter: Filter<T>) -> Self
 	where
-		T: Into<Value>,
+		T: sqlx::Type<Sqlite> + sqlx::Encode<'a, Sqlite> + Into<Value> + 'a,
 	{
-		self.builder.push(format!(" WHERE {} = ", column));
-		let value: Value = value.into();
-		match value {
-			// pushes placeholder ? and binds value
-			Value::Bool(v) => self.builder.push_bind(v),
-			Value::String(v) => self.builder.push_bind(v),
-			Value::Integer(v) => self.builder.push_bind(v),
-			Value::Real(v) => self.builder.push_bind(v),
-			Value::Blob(v) => self.builder.push_bind(v),
-			Value::Null => self.builder.push_bind::<Option<i32>>(None),
-		};
+		self.builder.push(format!(" WHERE "));
+		match filter {
+			Filter::Equal(column, value) => {
+				self.builder.push(column);
+				self.builder.push(" = ");
+				push_bind_value(&mut self.builder, value.into());
+			}
+			Filter::NotEqual(column, value) => {
+				self.builder.push(column);
+				self.builder.push(" != ");
+				push_bind_value(&mut self.builder, value.into());
+			}
+		}
+
 		self
 	}
 
-	pub fn insert_into<T>(mut self, rows: &Vec<T>) -> Self
+	pub fn insert<T>(mut self, rows: &Vec<T>) -> Self
 	where
 		T: TableLike,
 	{
 		if !self.builder.sql().is_empty() {
-			panic!("insert_into can't be chained with previous queries");
+			panic!("insert can't be chained with previous queries");
 		}
 
 		let table_name = T::table_name();
 		let column_names = T::columns();
-		let query_str = format!(
-			"INSERT OR REPLACE INTO {} ({})",
-			table_name,
-			column_names.join(", ")
-		);
 
-		self.builder.push(query_str);
+		self.builder.push("INSERT INTO ");
+		self.builder.push(&table_name);
+		self.builder.push(" (");
+		self.builder.push(column_names.join(", "));
+		self.builder.push(")");
 		self.builder.push(" VALUES ");
+
 		for (i, row) in rows.iter().enumerate() {
 			if i > 0 {
 				self.builder.push(", ");
@@ -74,17 +80,48 @@ impl<'a> SqlQuery<'a> {
 					self.builder.push(", ");
 				}
 
-				match value {
-					Value::Bool(v) => self.builder.push_bind(v),
-					Value::String(v) => self.builder.push_bind(v),
-					Value::Integer(v) => self.builder.push_bind(v),
-					Value::Real(v) => self.builder.push_bind(v),
-					Value::Blob(v) => self.builder.push_bind(v),
-					Value::Null => self.builder.push_bind::<Option<i32>>(None),
-				};
+				push_bind_value(&mut self.builder, value);
 			}
 
 			self.builder.push(")");
+		}
+
+		self
+	}
+
+	pub fn update<T>(mut self, row: &T) -> Self
+	where
+		T: TableLike,
+	{
+		if !self.builder.sql().is_empty() {
+			panic!("update can't be chained with previous queries");
+		}
+
+		let table_name = T::table_name();
+		let column_names = T::columns();
+		let primary_columns = T::primary_key_columns();
+
+		self.builder.push("UPDATE ");
+		self.builder.push(&table_name);
+		self.builder.push(" SET ");
+
+		let values = row.to_values();
+		let update_columns: Vec<&String> = column_names
+			.iter()
+			.filter(|column| !primary_columns.contains(column))
+			.collect();
+
+		for (i, column) in update_columns.iter().enumerate() {
+			if i > 0 {
+				self.builder.push(", ");
+			}
+
+			self.builder.push(column);
+			self.builder.push(" = ");
+
+			let column_index = column_names.iter().position(|c| c == *column).unwrap();
+			let value = &values[column_index];
+			push_bind_value(&mut self.builder, value.clone());
 		}
 
 		self
@@ -127,4 +164,15 @@ impl<'a> SqlQuery<'a> {
 					.collect::<Result<Vec<_>, _>>()
 			})
 	}
+}
+
+fn push_bind_value(builder: &mut QueryBuilder<Sqlite>, value: Value) {
+	match value {
+		Value::Bool(v) => builder.push_bind(v),
+		Value::String(v) => builder.push_bind(v),
+		Value::Integer(v) => builder.push_bind(v),
+		Value::Real(v) => builder.push_bind(v),
+		Value::Blob(v) => builder.push_bind(v),
+		Value::Null => builder.push_bind::<Option<i32>>(None),
+	};
 }

@@ -13,7 +13,7 @@ use crate::{
 	request::service_request::{
 		build_service_request, service_methods, ServiceMethod, ServiceResponse,
 	},
-	sql_query::SqlQuery,
+	sql_query::{Filter, SqlQuery},
 	store_keys,
 	sync::{self},
 };
@@ -50,7 +50,8 @@ struct ServiceCourseStateModule {
 	#[serde(rename = "sectionid")]
 	section_id: String,
 	// describes the type of the module, i.e. forum, page, etc
-	module: String,
+	#[serde(rename = "module")]
+	module_type: String,
 }
 
 #[tauri::command]
@@ -64,7 +65,7 @@ pub async fn get_user_course(
 	let pool = &state.0;
 	let course = SqlQuery::new()
 		.select(Course::table_name())
-		.where_column("id", course_id.to_string())
+		.filter(Filter::Equal("id".into(), course_id))
 		.fetch_one::<Course, _>(pool)
 		.await
 		.map_err(|error| error.to_string())?;
@@ -152,11 +153,20 @@ pub async fn get_course_sections(
 
 			let state = app_handle.state::<DatabaseState>();
 			let mut transaction = state.0.begin().await?;
-			SqlQuery::new()
-				.insert_into(&sections)
-				.execute(transaction.as_mut())
-				.await
-				.map_err(|error| error.to_string())?;
+			for section in &sections {
+				let update = SqlQuery::new()
+					.update(section)
+					.filter(Filter::Equal("id".into(), section.id))
+					.execute(transaction.as_mut())
+					.await?;
+
+				if update.rows_affected() == 0 {
+					SqlQuery::new()
+						.insert(&vec![section.clone()])
+						.execute(transaction.as_mut())
+						.await?;
+				}
+			}
 
 			transaction.commit().await?;
 			Ok(())
@@ -167,7 +177,7 @@ pub async fn get_course_sections(
 	let pool = &state.0;
 	let sections = SqlQuery::new()
 		.select(CourseSection::table_name())
-		.where_column("course_id", course_id.to_string())
+		.filter(Filter::Equal("course_id".into(), course_id))
 		.fetch_all::<CourseSection, _>(pool)
 		.await
 		.map_err(|error| error.to_string())?;
@@ -237,14 +247,24 @@ pub async fn get_user_courses(
 					colour: None,
 					icon: None,
 				})
-				.collect();
+				.collect::<Vec<_>>();
 
 			let state = app_handle.state::<DatabaseState>();
 			let mut transaction = state.0.begin().await?;
-			SqlQuery::new()
-				.insert_into(&courses)
-				.execute(transaction.as_mut())
-				.await?;
+			for course in courses {
+				let update = SqlQuery::new()
+					.update(&course)
+					.filter(Filter::Equal("id".into(), course.id))
+					.execute(transaction.as_mut())
+					.await?;
+
+				if update.rows_affected() == 0 {
+					SqlQuery::new()
+						.insert(&vec![course])
+						.execute(transaction.as_mut())
+						.await?;
+				}
+			}
 
 			transaction.commit().await?;
 			Ok(())

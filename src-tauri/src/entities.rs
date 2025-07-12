@@ -10,6 +10,7 @@ use sqlx::{types::Json, FromRow};
 pub trait TableLike {
 	fn table_name() -> String;
 	fn columns() -> Vec<String>;
+	fn primary_key_columns() -> Vec<String>;
 	fn to_values(&self) -> Vec<Value>;
 }
 
@@ -39,6 +40,10 @@ impl TableLike for Course {
 			"colour".to_string(),
 			"icon".to_string(),
 		]
+	}
+
+	fn primary_key_columns() -> Vec<String> {
+		vec!["id".to_string()]
 	}
 
 	fn to_values(&self) -> Vec<Value> {
@@ -82,6 +87,10 @@ impl TableLike for CourseSection {
 			"course_id".to_string(),
 			"items".to_string(),
 		]
+	}
+
+	fn primary_key_columns() -> Vec<String> {
+		vec!["id".to_string()]
 	}
 
 	fn to_values(&self) -> Vec<Value> {
