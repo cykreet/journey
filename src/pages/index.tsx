@@ -22,9 +22,9 @@ export const Index = () => {
 	useEffect(() => {
 		const unlistenPromise = listen<AuthStatusPayload>("login_closed", (event) => {
 			setLoading(false);
+			if (event.payload !== AuthStatus.Aborted) setShowDialog(true);
 			setAuthStatus(event.payload);
 			setAuthTimeout(event.payload);
-			setShowDialog(true);
 		});
 
 		return () => {
@@ -39,7 +39,7 @@ export const Index = () => {
 	}, [authStatus]);
 
 	const openLoginWindow = async () => {
-		if (!host[0]) return;
+		if (!host[0] || loading) return;
 		setLoading(true);
 		const loginResult = await commands.openLoginWindow(host);
 
@@ -55,7 +55,7 @@ export const Index = () => {
 		if (timerRef.current) clearTimeout(timerRef.current);
 		timerRef.current = setTimeout(
 			(state: AuthStatusPayload) => {
-				if (state === AuthStatus.Aborted) return;
+				// if (state === AuthStatus.Aborted) return;
 				if (state === AuthStatus.Success) return navigate("/home");
 				setAuthStatus(undefined);
 				setShowDialog(false);
@@ -96,7 +96,7 @@ export const Index = () => {
 					</div>
 				</div>
 				<div>
-					<span className="text-sm text-wood-100">Enter the domain of your Moodle instance here.</span>
+					<span className="text-sm text-wood-100">Enter the host of your Moodle instance here.</span>
 					<div className="flex flex-row space-x-2 w-full items-center">
 						<Input
 							className="w-full"
@@ -115,7 +115,7 @@ export const Index = () => {
 							onEnter={openLoginWindow}
 							placeholder="https://moodle.example.com"
 						/>
-						<Button onClick={() => openLoginWindow} loading={loading} disabled={!host[0]}>
+						<Button onClick={openLoginWindow} loading={loading} disabled={!host[0]}>
 							<IconArrowRight className="w-6 h-6" />
 						</Button>
 					</div>

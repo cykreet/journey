@@ -1,7 +1,11 @@
 use std::vec;
 
+use entity::course_section_item::ContentType;
+use sea_orm::{
+	ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
+	TransactionTrait,
+};
 use serde::Deserialize;
-use sqlx::types::Json;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_store::StoreExt;
@@ -9,11 +13,9 @@ use tauri_plugin_store::StoreExt;
 use crate::{
 	auth::auth_keys,
 	database::DatabaseState,
-	entities::{ContentType, Course, CourseSection, CourseSectionItem, TableLike},
 	request::service_request::{
 		build_service_request, service_methods, ServiceMethod, ServiceResponse,
 	},
-	sql_query::{Filter, SqlQuery},
 	store_keys,
 	sync::{self},
 };
@@ -25,7 +27,7 @@ struct ServiceCourses {
 
 #[derive(Deserialize)]
 struct ServiceCourse {
-	id: u32,
+	id: i32,
 	#[serde(rename = "fullname")]
 	full_name: String,
 }
@@ -56,38 +58,20 @@ struct ServiceCourseStateModule {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_user_course(
-	state: tauri::State<'_, DatabaseState>,
-	course_id: u32,
-) -> Result<Course, String> {
-	// todo: join course sections, joins are not currently supported by SqlQuery
-	// and would be a decent amount of work outside of just writing the query
-	let pool = &state.0;
-	let course = SqlQuery::new()
-		.select(Course::table_name())
-		.filter(Filter::Equal("id".into(), course_id))
-		.fetch_one::<Course, _>(pool)
-		.await
-		.map_err(|error| error.to_string())?;
-	Ok(course)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn get_course_sections(
+pub async fn get_course(
 	app: AppHandle,
 	state: tauri::State<'_, DatabaseState>,
-	course_id: u32,
-) -> Result<Vec<CourseSection>, String> {
+	course_id: i32,
+) -> Result<entity::course::Model, String> {
 	sync::revalidate_task(
 		&app,
-		format!("get_course_sections_{}", course_id).as_str(),
-		"Get course sections",
+		format!("get_course_{}", course_id).as_str(),
+		"Get course state",
 		async move |app_handle| {
 			let auth_store = app_handle.store(store_keys::AUTH).unwrap();
 			let client = reqwest::Client::new();
 			let service_method =
-				ServiceMethod::new(0, service_methods::GET_COURSE_STATE).with_courseid(course_id);
+				ServiceMethod::new(0, service_methods::GET_COURSE_STATE).with_course_id(course_id);
 
 			let host = auth_store.get(auth_keys::MOODLE_HOST).unwrap();
 			let session_cookie = auth_store.get(auth_keys::MOODLE_SESSION).unwrap();
@@ -124,72 +108,110 @@ pub async fn get_course_sections(
 				.unwrap()
 				.data
 				.unwrap_or_default();
-			// individual section items or "cm" (course modules) are stored in a separate array from
-			// the sections, so we need to merge them (see ServiceCourseState)
 			let course_state = serde_json::from_str::<ServiceCourseState>(&service_parsed).unwrap();
-			let sections = course_state
-				.section
+			let sections =
+				course_state
+					.section
+					.iter()
+					.map(|section| entity::course_section::ActiveModel {
+						id: ActiveValue::Set(section.id.parse().unwrap()),
+						name: ActiveValue::Set(section.title.clone()),
+						course_id: ActiveValue::Set(course_id),
+					});
+
+			let items = course_state
+				.module
 				.iter()
-				.map(|section| CourseSection {
-					id: section.id.parse().unwrap(),
-					name: section.title.clone(),
-					course_id: course_id,
-					items: Json::from(
-						course_state
-							.module
-							.iter()
-							.filter(|module| module.section_id == section.id)
-							.map(|module| CourseSectionItem {
-								id: module.id.parse().unwrap(),
-								name: module.name.clone(),
-								updated_at: None,
-								// todo: map from module type
-								content_type: ContentType::Page,
-							})
-							.collect::<Vec<_>>(),
-					),
+				.map(|module| entity::course_section_item::ActiveModel {
+					id: ActiveValue::Set(module.id.parse().unwrap()),
+					name: ActiveValue::Set(module.name.clone()),
+					section_id: ActiveValue::Set(module.section_id.parse().unwrap()),
+					// todo: map module_type to ContentType enum
+					content_type: ActiveValue::Set(ContentType::Page),
+					updated_at: ActiveValue::NotSet,
 				})
 				.collect::<Vec<_>>();
 
 			let state = app_handle.state::<DatabaseState>();
-			let mut transaction = state.0.begin().await?;
-			for section in &sections {
-				let update = SqlQuery::new()
-					.update(section)
-					.filter(Filter::Equal("id".into(), section.id))
-					.execute(transaction.as_mut())
-					.await?;
+			let db = &state.0;
+			let txn = db.begin().await.map_err(|e| e.to_string())?;
+			for section in sections {
+				let update_result = entity::CourseSection::update_many()
+					.filter(entity::course_section::Column::Id.eq(section.id.clone().unwrap()))
+					.exec(db)
+					.await
+					.map_err(|error| error.to_string())?;
 
-				if update.rows_affected() == 0 {
-					SqlQuery::new()
-						.insert(&vec![section.clone()])
-						.execute(transaction.as_mut())
-						.await?;
+				if update_result.rows_affected == 0 {
+					entity::CourseSection::insert(section)
+						.exec(db)
+						.await
+						.map_err(|error| error.to_string())?;
 				}
 			}
 
-			transaction.commit().await?;
+			for item in items {
+				let update_result = entity::CourseSectionItem::update_many()
+					.filter(entity::course_section_item::Column::Id.eq(item.id.clone().unwrap()))
+					.exec(db)
+					.await
+					.map_err(|error| error.to_string())?;
+
+				if update_result.rows_affected == 0 {
+					entity::CourseSectionItem::insert(item)
+						.exec(db)
+						.await
+						.map_err(|error| error.to_string())?;
+				}
+			}
+
+			txn.commit().await.map_err(|error| error.to_string())?;
 			Ok(())
 		},
 	)
 	.await;
 
-	let pool = &state.0;
-	let sections = SqlQuery::new()
-		.select(CourseSection::table_name())
-		.filter(Filter::Equal("course_id".into(), course_id))
-		.fetch_all::<CourseSection, _>(pool)
+	let db = &state.0;
+	entity::Course::find_by_id(course_id)
+		.join(
+			JoinType::LeftJoin,
+			entity::course::Relation::CourseSection.def(),
+		)
+		.one(db)
 		.await
-		.map_err(|error| error.to_string())?;
-	Ok(sections)
+		.map_err(|error| error.to_string())?
+		.ok_or_else(|| format!("Course with id {} not found", course_id))
 }
+
+// #[tauri::command]
+// #[specta::specta]
+// pub async fn get_module_content(
+// 	app: AppHandle,
+// 	state: tauri::State<'_, DatabaseState>,
+// 	module_id: i32,
+// ) -> Result<entity::module_content::Model, String> {
+// 	sync::revalidate_task(
+// 		&app,
+// 		format!("get_module_{}", module_id).as_str(),
+// 		"Get module",
+// 		async move |app_handle| {},
+// 	)
+// 	.await;
+
+// 	let db = &state.0;
+// 	entity::ModuleContent::find_by_id(module_id)
+// 		.one(db)
+// 		.await
+// 		.map_err(|error| error.to_string())?
+// 		.ok_or_else(|| format!("Module with id {} not found", module_id))
+// }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_user_courses(
 	app: AppHandle,
 	state: tauri::State<'_, DatabaseState>,
-) -> Result<Vec<Course>, String> {
+) -> Result<Vec<entity::course::Model>, String> {
 	sync::revalidate_task(
 		&app,
 		"get_user_courses",
@@ -241,42 +263,49 @@ pub async fn get_user_courses(
 			let courses = service_parsed
 				.courses
 				.iter()
-				.map(|course| Course {
-					id: course.id,
-					name: course.full_name.clone(),
-					colour: None,
-					icon: None,
+				.map(|course| entity::course::ActiveModel {
+					id: ActiveValue::Set(course.id),
+					name: ActiveValue::Set(course.full_name.clone()),
+					colour: ActiveValue::Set(Some("blue".to_string())),
+					icon: ActiveValue::NotSet,
 				})
 				.collect::<Vec<_>>();
 
 			let state = app_handle.state::<DatabaseState>();
-			let mut transaction = state.0.begin().await?;
+			let db = &state.0;
+			let txn = db.begin().await.map_err(|error| error.to_string())?;
 			for course in courses {
-				let update = SqlQuery::new()
-					.update(&course)
-					.filter(Filter::Equal("id".into(), course.id))
-					.execute(transaction.as_mut())
-					.await?;
+				// let course_id = course.id;
+				// let course = entity::course::ActiveModel {
+				// 	id: sea_orm::Set(course.id),
+				// 	name: sea_orm::Set(course.name),
+				// 	..Default::default()
+				// };
 
-				if update.rows_affected() == 0 {
-					SqlQuery::new()
-						.insert(&vec![course])
-						.execute(transaction.as_mut())
-						.await?;
+				let update_result = entity::Course::update_many()
+					.filter(entity::course::Column::Id.eq(course.id.clone().unwrap()))
+					.exec(db)
+					.await
+					.map_err(|error| error.to_string())?;
+
+				if update_result.rows_affected == 0 {
+					entity::Course::insert(course)
+						.exec(db)
+						.await
+						.map_err(|error| error.to_string())?;
 				}
 			}
 
-			transaction.commit().await?;
+			txn.commit().await.map_err(|error| error.to_string())?;
 			Ok(())
 		},
 	)
 	.await;
 
-	let pool = &state.0;
-	let courses = SqlQuery::new()
-		.select(Course::table_name())
-		.fetch_all::<Course, _>(pool)
+	let db = &state.0;
+	entity::Course::find()
+		.all(db)
 		.await
-		.map_err(|error| error.to_string())?;
-	Ok(courses)
+		.map_err(|error| error.to_string())
+		.map(|courses| courses.into_iter().collect())
 }

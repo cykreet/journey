@@ -7,6 +7,8 @@ export interface Command<T> {
 	loading?: boolean;
 }
 
+// todo: maybe add optional parameters for data events and listeners
+// so commands have the option to update data without re-fetching
 export const useCommand = <T>(
 	command: (...args: any) => Promise<Result<T, unknown>>,
 	...args: Parameters<typeof command>

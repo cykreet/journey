@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import IconJourney from "~icons/journey/journey";
+import IconCog from "~icons/tabler/settings-filled";
 import { commands } from "../../bindings";
 import { useCommand } from "../../hooks/useCommand";
 import { SidebarIcon, SidebarIconStyle } from "./sidebar-icon";
@@ -33,7 +34,9 @@ export const Sidebar = () => {
 				))}
 			</div>
 			<div className="mt-auto pt-2">
-				<SidebarIcon iconStyle={SidebarIconStyle.WOOD}>o</SidebarIcon>
+				<SidebarIcon iconStyle={SidebarIconStyle.WOOD}>
+					<IconCog className="w-6 h-6 mx-auto" />
+				</SidebarIcon>
 			</div>
 		</div>
 	);

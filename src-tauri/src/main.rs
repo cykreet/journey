@@ -1,5 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use entity::course::Model as Course;
+use entity::course_section::Model as CourseSection;
+use entity::course_section_item::Model as CourseSectionItem;
+use entity::module_content::Model as ModuleContent;
+
 use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
 use tauri::async_runtime::Mutex;
 use tauri::{Emitter, Manager};
@@ -7,15 +12,12 @@ use tauri::{Emitter, Manager};
 use tauri_specta::{collect_commands, Builder};
 
 use self::auth::{get_user_session, open_login_window, AuthState, AuthStatus};
-use self::entities::{ContentType, Course, CourseSection};
-use self::request::course::{get_course_sections, get_user_course, get_user_courses};
+use self::request::course::{get_course, get_user_courses};
 use self::sync::SyncTask;
 
 mod auth;
 mod database;
-mod entities;
 mod request;
-mod sql_query;
 mod sync;
 
 pub mod store_keys {
@@ -28,13 +30,13 @@ pub fn main() {
 		.commands(collect_commands![
 			open_login_window,
 			get_user_courses,
-			get_user_course,
+			get_course,
 			get_user_session,
-			get_course_sections,
 		])
 		.typ::<Course>()
-		.typ::<ContentType>()
 		.typ::<CourseSection>()
+		.typ::<CourseSectionItem>()
+		.typ::<ModuleContent>()
 		.typ::<SyncTask>()
 		.typ::<AuthStatus>();
 
@@ -78,7 +80,7 @@ pub fn main() {
 					.await
 					.expect("failed to create database");
 
-				handle.manage(database::DatabaseState(database.pool));
+				handle.manage(database::DatabaseState(database.connection));
 			});
 
 			// todo: set auth state based on existing session

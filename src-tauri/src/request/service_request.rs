@@ -18,7 +18,7 @@ pub struct ServiceResponse<T> {
 
 #[derive(Serialize, Deserialize)]
 pub struct ServiceMethod<'a> {
-	index: u32,
+	index: i32,
 	methodname: &'a str,
 	args: ServiceMethodArgs<'a>,
 }
@@ -26,10 +26,10 @@ pub struct ServiceMethod<'a> {
 #[derive(Serialize, Deserialize)]
 pub struct ServiceMethodArgs<'a> {
 	#[serde(skip_serializing_if = "Option::is_none")]
-	limit: Option<u32>,
+	limit: Option<i32>,
 
 	#[serde(skip_serializing_if = "Option::is_none")]
-	offset: Option<u32>,
+	offset: Option<i32>,
 
 	#[serde(rename = "useridto")]
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -51,11 +51,11 @@ pub struct ServiceMethodArgs<'a> {
 
 	#[serde(rename = "courseid")]
 	#[serde(skip_serializing_if = "Option::is_none")]
-	course_id: Option<u32>,
+	course_id: Option<i32>,
 }
 
 impl<'a> ServiceMethod<'a> {
-	pub fn new(index: u32, methodname: &'a str) -> Self {
+	pub fn new(index: i32, methodname: &'a str) -> Self {
 		Self {
 			index,
 			methodname,
@@ -72,12 +72,12 @@ impl<'a> ServiceMethod<'a> {
 		}
 	}
 
-	pub fn with_limit(mut self, limit: u32) -> Self {
+	pub fn with_limit(mut self, limit: i32) -> Self {
 		self.args.limit = Some(limit);
 		self
 	}
 
-	pub fn with_offset(mut self, offset: u32) -> Self {
+	pub fn with_offset(mut self, offset: i32) -> Self {
 		self.args.offset = Some(offset);
 		self
 	}
@@ -107,8 +107,8 @@ impl<'a> ServiceMethod<'a> {
 	// 	self
 	// }
 
-	pub fn with_courseid(mut self, courseid: u32) -> Self {
-		self.args.course_id = Some(courseid);
+	pub fn with_course_id(mut self, course_id: i32) -> Self {
+		self.args.course_id = Some(course_id);
 		self
 	}
 }

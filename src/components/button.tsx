@@ -32,7 +32,7 @@ export const Button = ({
 	return (
 		// biome-ignore lint/a11y/useButtonType: <explanation>
 		// biome-ignore lint/a11y/useButtonType: <explanation>
-		<button className={classes} onClick={() => !disabled && onClick}>
+		<button className={classes} onClick={() => !disabled && onClick()}>
 			{(loading && <Loading />) || children}
 		</button>
 	);
