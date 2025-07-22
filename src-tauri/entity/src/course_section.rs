@@ -4,6 +4,7 @@ use specta::Type;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Type, Serialize, Deserialize)]
 #[sea_orm(table_name = "course_section")]
+#[specta(rename = "CourseSection")]
 pub struct Model {
 	#[sea_orm(primary_key)]
 	pub id: i32,
@@ -13,7 +14,11 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-	#[sea_orm(has_one = "super::course::Entity")]
+	#[sea_orm(
+		belongs_to = "super::course::Entity",
+		from = "Column::CourseId",
+		to = "super::course::Column::Id"
+	)]
 	Course,
 	#[sea_orm(has_many = "super::course_section_item::Entity")]
 	CourseSectionItem,

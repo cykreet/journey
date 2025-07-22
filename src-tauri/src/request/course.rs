@@ -1,11 +1,9 @@
 use std::vec;
 
 use entity::course_section_item::ContentType;
-use sea_orm::{
-	ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
-	TransactionTrait,
-};
-use serde::Deserialize;
+use sea_orm::{sea_query, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_store::StoreExt;
@@ -56,13 +54,25 @@ struct ServiceCourseStateModule {
 	module_type: String,
 }
 
+#[derive(Serialize, Deserialize, Type)]
+pub struct CourseWithSections {
+	pub course: entity::course::Model,
+	pub sections: Vec<CourseSectionWithItems>,
+}
+
+#[derive(Serialize, Deserialize, Type)]
+pub struct CourseSectionWithItems {
+	pub section: entity::course_section::Model,
+	pub items: Vec<entity::course_section_item::Model>,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_course(
 	app: AppHandle,
 	state: tauri::State<'_, DatabaseState>,
 	course_id: i32,
-) -> Result<entity::course::Model, String> {
+) -> Result<CourseWithSections, String> {
 	sync::revalidate_task(
 		&app,
 		format!("get_course_{}", course_id).as_str(),
@@ -134,35 +144,36 @@ pub async fn get_course(
 
 			let state = app_handle.state::<DatabaseState>();
 			let db = &state.0;
-			let txn = db.begin().await.map_err(|e| e.to_string())?;
+			let txn = db.begin().await.map_err(|error| error.to_string())?;
 			for section in sections {
-				let update_result = entity::CourseSection::update_many()
-					.filter(entity::course_section::Column::Id.eq(section.id.clone().unwrap()))
-					.exec(db)
+				entity::CourseSection::insert(section)
+					.on_conflict(
+						sea_query::OnConflict::column(entity::course_section::Column::Id)
+							.update_columns([
+								entity::course_section::Column::Name,
+								entity::course_section::Column::CourseId,
+							])
+							.to_owned(),
+					)
+					.exec(&txn)
 					.await
 					.map_err(|error| error.to_string())?;
-
-				if update_result.rows_affected == 0 {
-					entity::CourseSection::insert(section)
-						.exec(db)
-						.await
-						.map_err(|error| error.to_string())?;
-				}
 			}
 
 			for item in items {
-				let update_result = entity::CourseSectionItem::update_many()
-					.filter(entity::course_section_item::Column::Id.eq(item.id.clone().unwrap()))
-					.exec(db)
+				entity::CourseSectionItem::insert(item)
+					.on_conflict(
+						sea_query::OnConflict::column(entity::course_section_item::Column::Id)
+							.update_columns([
+								entity::course_section_item::Column::Name,
+								entity::course_section_item::Column::SectionId,
+								entity::course_section_item::Column::ContentType,
+							])
+							.to_owned(),
+					)
+					.exec(&txn)
 					.await
 					.map_err(|error| error.to_string())?;
-
-				if update_result.rows_affected == 0 {
-					entity::CourseSectionItem::insert(item)
-						.exec(db)
-						.await
-						.map_err(|error| error.to_string())?;
-				}
 			}
 
 			txn.commit().await.map_err(|error| error.to_string())?;
@@ -172,15 +183,32 @@ pub async fn get_course(
 	.await;
 
 	let db = &state.0;
-	entity::Course::find_by_id(course_id)
-		.join(
-			JoinType::LeftJoin,
-			entity::course::Relation::CourseSection.def(),
-		)
-		.one(db)
+	let course_with_sections = entity::Course::find_by_id(course_id)
+		.find_with_related(entity::CourseSection)
+		.all(db)
 		.await
 		.map_err(|error| error.to_string())?
-		.ok_or_else(|| format!("Course with id {} not found", course_id))
+		.into_iter()
+		.next()
+		.ok_or_else(|| format!("Course with id {} not found", course_id))?;
+
+	let mut sections_with_items = vec![];
+	for section in course_with_sections.1 {
+		let items = entity::CourseSectionItem::find()
+			.filter(entity::course_section_item::Column::SectionId.eq(section.id))
+			.all(db)
+			.await
+			.map_err(|error| error.to_string())?;
+		sections_with_items.push((section, items));
+	}
+
+	Ok(CourseWithSections {
+		course: course_with_sections.0,
+		sections: sections_with_items
+			.into_iter()
+			.map(|(section, items)| CourseSectionWithItems { section, items })
+			.collect(),
+	})
 }
 
 // #[tauri::command]
@@ -275,25 +303,19 @@ pub async fn get_user_courses(
 			let db = &state.0;
 			let txn = db.begin().await.map_err(|error| error.to_string())?;
 			for course in courses {
-				// let course_id = course.id;
-				// let course = entity::course::ActiveModel {
-				// 	id: sea_orm::Set(course.id),
-				// 	name: sea_orm::Set(course.name),
-				// 	..Default::default()
-				// };
-
-				let update_result = entity::Course::update_many()
-					.filter(entity::course::Column::Id.eq(course.id.clone().unwrap()))
-					.exec(db)
+				entity::Course::insert(course)
+					.on_conflict(
+						sea_query::OnConflict::column(entity::course::Column::Id)
+							.update_columns([
+								entity::course::Column::Name,
+								entity::course::Column::Colour,
+								entity::course::Column::Icon,
+							])
+							.to_owned(),
+					)
+					.exec(&txn)
 					.await
 					.map_err(|error| error.to_string())?;
-
-				if update_result.rows_affected == 0 {
-					entity::Course::insert(course)
-						.exec(db)
-						.await
-						.map_err(|error| error.to_string())?;
-				}
 			}
 
 			txn.commit().await.map_err(|error| error.to_string())?;

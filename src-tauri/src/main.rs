@@ -11,6 +11,8 @@ use tauri::{Emitter, Manager};
 // use tauri_plugin_store::StoreExt;
 use tauri_specta::{collect_commands, Builder};
 
+use crate::request::course::{CourseSectionWithItems, CourseWithSections};
+
 use self::auth::{get_user_session, open_login_window, AuthState, AuthStatus};
 use self::request::course::{get_course, get_user_courses};
 use self::sync::SyncTask;
@@ -37,6 +39,8 @@ pub fn main() {
 		.typ::<CourseSection>()
 		.typ::<CourseSectionItem>()
 		.typ::<ModuleContent>()
+		.typ::<CourseWithSections>()
+		.typ::<CourseSectionWithItems>()
 		.typ::<SyncTask>()
 		.typ::<AuthStatus>();
 

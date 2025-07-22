@@ -21,11 +21,14 @@ export const Input = ({
 	onEnter?: () => void;
 }) => {
 	const containerClasses = clsx("flex flex-col space-y-1", className);
+	const classNames = clsx("border border-ivory/10 rounded-md p-1.5 focus-within:border-goo", {
+		"cursor-not-allowed opacity-50": disabled,
+	});
 
 	return (
 		<div className={containerClasses}>
 			<span className="text-sm">{label}</span>
-			<div className="border border-ivory/10 rounded-md p-1.5 focus-within:border-goo">
+			<div className={classNames}>
 				<input
 					disabled={disabled}
 					type={type}
