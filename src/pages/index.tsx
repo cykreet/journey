@@ -5,10 +5,11 @@ import { type AuthStatus as AuthStatusPayload, commands } from "../bindings";
 import { Button } from "../components/button";
 import { Dialog, DialogBodyFailed, DialogBodySuccess } from "../components/dialog";
 import { Input } from "../components/input";
-import { AuthStatus } from "../types";
+import { AuthStatus, SessionStatus } from "../types";
 import { getVersion } from "@tauri-apps/api/app";
 import { navigate } from "wouter/use-browser-location";
 import IconArrowRight from "~icons/tabler/arrow-right";
+import { useSessionStatus } from "../hooks/useSessionStatus";
 
 export const Index = () => {
 	const [showDialog, setShowDialog] = useState(false);
@@ -16,8 +17,19 @@ export const Index = () => {
 	const [loading, setLoading] = useState(false);
 	const [host, setHost] = useState("");
 	const [version, setVersion] = useState("");
+	const sessionStatus = useSessionStatus();
+
 	const timerRef = useRef<number>();
 	const authStateRef = useRef<AuthStatusPayload>();
+
+	useEffect(() => {
+		if (sessionStatus === SessionStatus.Valid) return navigate("/home");
+	}, [sessionStatus]);
+
+	useEffect(() => {
+		getVersion().then(setVersion);
+		authStateRef.current = authStatus;
+	}, [authStatus]);
 
 	useEffect(() => {
 		const unlistenPromise = listen<AuthStatusPayload>("login_closed", (event) => {
@@ -32,11 +44,6 @@ export const Index = () => {
 			clearTimeout(timerRef.current);
 		};
 	}, []);
-
-	useEffect(() => {
-		getVersion().then(setVersion);
-		authStateRef.current = authStatus;
-	}, [authStatus]);
 
 	const openLoginWindow = async () => {
 		if (!host[0] || loading) return;
@@ -74,7 +81,7 @@ export const Index = () => {
 				</Dialog>
 			)}
 			<div className="flex flex-col justify-center items-center h-screen space-y-4 bg-wood-700">
-				<div className="flex flex-row mx-auto max-w-[48%] container space-x-10 items-center">
+				<div className="flex flex-row mx-auto max-w-1/2 container space-x-10 items-center">
 					<IconJourney className="w-34 h-34" />
 					<div className="flex flex-col space-y-2">
 						<div className="flex flex-row space-x-2">
@@ -95,7 +102,7 @@ export const Index = () => {
 						</span>
 					</div>
 				</div>
-				<div>
+				<div className="flex flex-col w-full max-w-1/3">
 					<span className="text-sm text-wood-100">Enter the host of your Moodle instance here.</span>
 					<div className="flex flex-row space-x-2 w-full items-center">
 						<Input

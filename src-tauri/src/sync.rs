@@ -1,12 +1,9 @@
-use std::future::Future;
+use std::{collections::HashMap, future::Future};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
-use tauri::{AppHandle, Emitter};
-use tauri_plugin_store::StoreExt;
-
-use crate::store_keys;
+use tauri::{async_runtime::Mutex, AppHandle, Emitter, Manager};
 
 #[derive(Serialize, Deserialize, Clone, Type, Debug)]
 pub enum SyncStatus {
@@ -24,9 +21,16 @@ pub struct SyncTask {
 	pub error: Option<String>,
 }
 
+#[derive(Default)]
+pub struct SyncState {
+	pub tasks: HashMap<String, serde_json::Value>,
+}
+
 // 3 minutes
 const SYNC_TIMEOUT: u64 = 60 * 3;
 
+// todo: spawn sync tasks in a separate thread, and add returned data
+// to event payload
 pub async fn revalidate_task<F, Fut, T>(
 	app: &AppHandle,
 	sync_id: &str,
@@ -38,8 +42,9 @@ where
 	Fut: Future<Output = Result<T, Box<dyn std::error::Error>>> + Send + 'static,
 	T: Send + 'static,
 {
-	let sync_store = app.store(store_keys::SYNC).unwrap();
-	let sync_entry = sync_store.get(sync_id);
+	let sync_state = app.state::<Mutex<SyncState>>();
+	let mut sync_state = sync_state.lock().await;
+	let sync_entry = sync_state.tasks.get(sync_id);
 	let now = std::time::SystemTime::now()
 		.duration_since(std::time::SystemTime::UNIX_EPOCH)
 		.unwrap()
@@ -64,17 +69,15 @@ where
 		)
 		.unwrap();
 
-	let result = task_fn(app.clone())
-		.await
-		.map_err(|error| error.to_string());
+	let result = task_fn(app.clone()).await.map_err(|e| e.to_string());
 	let status = match result {
 		Ok(_) => {
-			sync_store.set(sync_id, json!(now));
+			sync_state.tasks.insert(sync_id.to_string(), json!(now));
 			SyncStatus::Success
 		}
-		Err(error) => {
+		Err(e) => {
 			// sync_store.set(sync_id, json!(now + (SYNC_TIMEOUT / 2)));
-			SyncStatus::Failed(error)
+			SyncStatus::Failed(e)
 		}
 	};
 

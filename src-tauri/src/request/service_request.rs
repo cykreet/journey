@@ -6,14 +6,23 @@ use tauri_plugin_http::reqwest::{self};
 pub mod service_methods {
 	pub const GET_COURSES: &str = "theme_remui_get_myoverviewcourses";
 	pub const GET_COURSE_STATE: &str = "core_courseformat_get_state";
+	pub const GET_REMAINING_TIME: &str = "core_session_time_remaining";
+	pub const SESSION_TOUCH: &str = "core_session_touch";
 	// pub const GET_NOTIFICATIONS: &str = "message_popup_get_popup_notifications";
-	// pub const SESSION_TOUCH: &str = "core_session_touch";
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ServiceResponse<T> {
 	pub data: Option<T>,
-	pub error: Option<serde_json::Value>,
+	pub error: Option<bool>,
+	pub exception: Option<ServiceException>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ServiceException {
+	pub message: String,
+	#[serde(rename = "errorcode")]
+	pub error_code: String,
 }
 
 #[derive(Serialize, Deserialize)]

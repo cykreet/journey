@@ -14,7 +14,6 @@ use crate::{
 	request::service_request::{
 		build_service_request, service_methods, ServiceMethod, ServiceResponse,
 	},
-	store_keys,
 	sync::{self},
 };
 
@@ -78,7 +77,7 @@ pub async fn get_course(
 		format!("get_course_{}", course_id).as_str(),
 		"Get course state",
 		async move |app_handle| {
-			let auth_store = app_handle.store(store_keys::AUTH).unwrap();
+			let auth_store = app_handle.store("store.json").unwrap();
 			let client = reqwest::Client::new();
 			let service_method =
 				ServiceMethod::new(0, service_methods::GET_COURSE_STATE).with_course_id(course_id);
@@ -97,28 +96,22 @@ pub async fn get_course(
 
 			let response = client.execute(request).await.unwrap();
 			if response.status().is_success() == false {
-				let message = format!(
-					"Failed to fetch course sections for course with id: {course_id}",
-					course_id = course_id
-				);
-
-				return Err(message.into());
+				return Err(format!("Failed to fetch course sections with id: {course_id}").into());
 			}
 
 			let body = response.text().await.unwrap();
 			if body.contains("errorcode") {
-				let message = format!("Could not get user courses: {}", body);
-				return Err(message.into());
+				return Err(format!("COuld not get user courses: {}", body).into());
 			}
 
 			let service_body = serde_json::from_str::<Vec<ServiceResponse<String>>>(&body).unwrap();
-			let service_parsed = service_body
+			let response_data = service_body
 				.into_iter()
 				.next()
 				.unwrap()
 				.data
 				.unwrap_or_default();
-			let course_state = serde_json::from_str::<ServiceCourseState>(&service_parsed).unwrap();
+			let course_state = serde_json::from_str::<ServiceCourseState>(&response_data).unwrap();
 			let sections =
 				course_state
 					.section
@@ -144,7 +137,7 @@ pub async fn get_course(
 
 			let state = app_handle.state::<DatabaseState>();
 			let db = &state.0;
-			let txn = db.begin().await.map_err(|error| error.to_string())?;
+			let txn = db.begin().await.map_err(|e| e.to_string())?;
 			for section in sections {
 				entity::CourseSection::insert(section)
 					.on_conflict(
@@ -157,7 +150,7 @@ pub async fn get_course(
 					)
 					.exec(&txn)
 					.await
-					.map_err(|error| error.to_string())?;
+					.map_err(|e| e.to_string())?;
 			}
 
 			for item in items {
@@ -173,37 +166,37 @@ pub async fn get_course(
 					)
 					.exec(&txn)
 					.await
-					.map_err(|error| error.to_string())?;
+					.map_err(|e| e.to_string())?;
 			}
 
-			txn.commit().await.map_err(|error| error.to_string())?;
+			txn.commit().await.map_err(|e| e.to_string())?;
 			Ok(())
 		},
 	)
 	.await;
 
 	let db = &state.0;
-	let course_with_sections = entity::Course::find_by_id(course_id)
+	let (course, sections) = entity::Course::find_by_id(course_id)
 		.find_with_related(entity::CourseSection)
 		.all(db)
 		.await
-		.map_err(|error| error.to_string())?
+		.map_err(|e| e.to_string())?
 		.into_iter()
 		.next()
 		.ok_or_else(|| format!("Course with id {} not found", course_id))?;
 
 	let mut sections_with_items = vec![];
-	for section in course_with_sections.1 {
+	for section in sections {
 		let items = entity::CourseSectionItem::find()
 			.filter(entity::course_section_item::Column::SectionId.eq(section.id))
 			.all(db)
 			.await
-			.map_err(|error| error.to_string())?;
+			.map_err(|e| e.to_string())?;
 		sections_with_items.push((section, items));
 	}
 
 	Ok(CourseWithSections {
-		course: course_with_sections.0,
+		course: course,
 		sections: sections_with_items
 			.into_iter()
 			.map(|(section, items)| CourseSectionWithItems { section, items })
@@ -245,7 +238,7 @@ pub async fn get_user_courses(
 		"get_user_courses",
 		"Get user courses",
 		async move |app_handle| {
-			let auth_store = app_handle.store(store_keys::AUTH).unwrap();
+			let auth_store = app_handle.store("store.json").unwrap();
 			let client = reqwest::Client::new();
 			let service_method = ServiceMethod::new(0, service_methods::GET_COURSES)
 				.with_offset(0)
@@ -267,28 +260,29 @@ pub async fn get_user_courses(
 
 			let response = client.execute(request).await.unwrap();
 			if response.status().is_success() == false {
-				let message = format!(
-					"Could not get user courses: {}",
-					response.text().await.unwrap()
+				return Err(
+					format!(
+						"Could not get user courses: {}",
+						response.text().await.unwrap()
+					)
+					.into(),
 				);
-
-				return Err(message.into());
 			}
 
 			let body = response.text().await.unwrap();
 			if body.contains("errorcode") {
-				let message = format!("Could not get user courses: {}", body);
-				return Err(message.into());
+				return Err(format!("Could not get user courses: {}", body).into());
 			}
 
-			let service_body: Vec<ServiceResponse<ServiceCourses>> = serde_json::from_str(&body).unwrap();
-			let service_parsed = service_body
+			let service_body: Vec<ServiceResponse<ServiceCourses>> =
+				serde_json::from_str(&body).map_err(|e| e.to_string())?;
+			let response_data = service_body
 				.into_iter()
 				.next()
 				.unwrap()
 				.data
 				.unwrap_or_default();
-			let courses = service_parsed
+			let courses = response_data
 				.courses
 				.iter()
 				.map(|course| entity::course::ActiveModel {
@@ -301,7 +295,7 @@ pub async fn get_user_courses(
 
 			let state = app_handle.state::<DatabaseState>();
 			let db = &state.0;
-			let txn = db.begin().await.map_err(|error| error.to_string())?;
+			let txn = db.begin().await.map_err(|e| e.to_string())?;
 			for course in courses {
 				entity::Course::insert(course)
 					.on_conflict(
@@ -315,10 +309,10 @@ pub async fn get_user_courses(
 					)
 					.exec(&txn)
 					.await
-					.map_err(|error| error.to_string())?;
+					.map_err(|e| e.to_string())?;
 			}
 
-			txn.commit().await.map_err(|error| error.to_string())?;
+			txn.commit().await.map_err(|e| e.to_string())?;
 			Ok(())
 		},
 	)
@@ -328,6 +322,6 @@ pub async fn get_user_courses(
 	entity::Course::find()
 		.all(db)
 		.await
-		.map_err(|error| error.to_string())
+		.map_err(|e| e.to_string())
 		.map(|courses| courses.into_iter().collect())
 }
