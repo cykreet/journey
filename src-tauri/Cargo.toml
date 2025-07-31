@@ -38,6 +38,9 @@ tauri-plugin-http = "2"
 select = "0.6.1"
 tokio = { version = "1.47.0", features = ["full"] }
 tauri-plugin-log = "2"
+rand = "0.9.2"
+base64 = "0.22.1"
+serde_urlencoded = "0.7.1"
 
 # [target.'cfg(debug_assertions)'.dependencies]
 # tracing = "0.1.41"

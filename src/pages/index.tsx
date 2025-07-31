@@ -32,7 +32,7 @@ export const Index = () => {
 	}, [authStatus]);
 
 	useEffect(() => {
-		const unlistenPromise = listen<AuthStatusPayload>("login_closed", (event) => {
+		const unlistenPromise = listen<AuthStatusPayload>("moodle_auth", (event) => {
 			setLoading(false);
 			if (event.payload !== AuthStatus.Aborted) setShowDialog(true);
 			setAuthStatus(event.payload);

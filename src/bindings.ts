@@ -12,30 +12,6 @@ async openLoginWindow(domain: string) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
-},
-async getUserCourses() : Promise<Result<Course[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_user_courses") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getCourse(courseId: number) : Promise<Result<CourseWithSections, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_course", { courseId }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getUserSession() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_user_session") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
 }
 }
 
@@ -54,8 +30,6 @@ export type ContentType = "Page" | "Forum"
 export type Course = { id: number; name: string; colour: string | null; icon: string | null }
 export type CourseSection = { id: number; course_id: number; name: string }
 export type CourseSectionItem = { id: number; section_id: number; name: string; content_type: ContentType; updated_at: number | null }
-export type CourseSectionWithItems = { section: CourseSection; items: CourseSectionItem[] }
-export type CourseWithSections = { course: Course; sections: CourseSectionWithItems[] }
 export type ModuleContent = { id: number; updated_at: number | null; content: string }
 export type SyncStatus = "Success" | { Failed: string } | "Pending"
 export type SyncTask = { id: string; name: string; last_sync: bigint; sync_status: SyncStatus; error: string | null }
