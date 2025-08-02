@@ -114,7 +114,7 @@ export const Index = () => {
 
 								try {
 									const parsed = new URL(value);
-									setHost(parsed.protocol + parsed.host);
+									setHost(`${parsed.protocol}//${parsed.host}`);
 								} catch {
 									setHost("");
 								}

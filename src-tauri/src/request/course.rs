@@ -11,47 +11,11 @@ use tauri_plugin_store::StoreExt;
 use crate::{
 	auth::auth_keys,
 	database::DatabaseState,
-	request::service_request::{
-		build_service_request, service_methods, ServiceMethod, ServiceResponse,
+	request::rest::{
+		self, build_rest_request, GetCourseSectionsFunctionData, GetCoursesFunctionData, RestResponse,
 	},
 	sync::{self},
 };
-
-#[derive(Default, Deserialize)]
-struct ServiceCourses {
-	courses: Vec<ServiceCourse>,
-}
-
-#[derive(Deserialize)]
-struct ServiceCourse {
-	id: i32,
-	#[serde(rename = "fullname")]
-	full_name: String,
-}
-
-#[derive(Default, Deserialize)]
-struct ServiceCourseState {
-	section: Vec<ServiceCourseStateSection>,
-	#[serde(rename = "cm")]
-	module: Vec<ServiceCourseStateModule>,
-}
-
-#[derive(Default, Deserialize)]
-struct ServiceCourseStateSection {
-	id: String,
-	title: String,
-}
-
-#[derive(Default, Deserialize)]
-struct ServiceCourseStateModule {
-	id: String,
-	name: String,
-	#[serde(rename = "sectionid")]
-	section_id: String,
-	// describes the type of the module, i.e. forum, page, etc
-	#[serde(rename = "module")]
-	module_type: String,
-}
 
 #[derive(Serialize, Deserialize, Type)]
 pub struct CourseWithSections {
@@ -77,22 +41,19 @@ pub async fn get_course(
 		format!("get_course_{}", course_id).as_str(),
 		"Get course state",
 		async move |app_handle| {
-			let auth_store = app_handle.store("store.json").unwrap();
+			let store = app_handle.store("store.json").unwrap();
 			let client = reqwest::Client::new();
-			let service_method =
-				ServiceMethod::new(0, service_methods::GET_COURSE_STATE).with_course_id(course_id);
+			let rest_functions = vec![rest::get_course_sections(course_id, true)];
 
-			let host = auth_store.get(auth_keys::MOODLE_HOST).unwrap();
-			let session_cookie = auth_store.get(auth_keys::MOODLE_SESSION).unwrap();
-			let session_key = auth_store.get(auth_keys::SESSION_KEY).unwrap();
-			let request = build_service_request(
+			let host = store.get(auth_keys::MOODLE_HOST).unwrap();
+			let ws_token = store.get(auth_keys::WS_TOKEN).unwrap();
+			let request = build_rest_request(
 				&client,
 				&host.as_str().unwrap(),
-				session_cookie.as_str().unwrap(),
-				session_key.as_str().unwrap(),
-				vec![service_method],
+				ws_token.as_str().unwrap(),
+				rest_functions,
 			)
-			.unwrap();
+			.map_err(|e| e.to_string())?;
 
 			let response = client.execute(request).await.unwrap();
 			if response.status().is_success() == false {
@@ -101,37 +62,44 @@ pub async fn get_course(
 
 			let body = response.text().await.unwrap();
 			if body.contains("errorcode") {
-				return Err(format!("COuld not get user courses: {}", body).into());
+				return Err(format!("Could not get user courses: {}", body).into());
 			}
 
-			let service_body = serde_json::from_str::<Vec<ServiceResponse<String>>>(&body).unwrap();
-			let response_data = service_body
-				.into_iter()
-				.next()
-				.unwrap()
-				.data
-				.unwrap_or_default();
-			let course_state = serde_json::from_str::<ServiceCourseState>(&response_data).unwrap();
-			let sections =
-				course_state
-					.section
-					.iter()
-					.map(|section| entity::course_section::ActiveModel {
-						id: ActiveValue::Set(section.id.parse().unwrap()),
-						name: ActiveValue::Set(section.title.clone()),
-						course_id: ActiveValue::Set(course_id),
-					});
+			let rest_response: RestResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+			let data_str = rest_response
+				.responses
+				.get(0)
+				.and_then(|r| r.data.as_ref())
+				.ok_or_else(|| "No data found in response".to_string())?;
+			let parsed_body = serde_json::from_value::<GetCourseSectionsFunctionData>(
+				serde_json::from_str(data_str).map_err(|e| e.to_string())?,
+			)?;
+			let sections_data = match parsed_body {
+				GetCourseSectionsFunctionData::Sections(sections) => sections,
+			};
 
-			let items = course_state
-				.module
+			let sections = sections_data
 				.iter()
-				.map(|module| entity::course_section_item::ActiveModel {
-					id: ActiveValue::Set(module.id.parse().unwrap()),
-					name: ActiveValue::Set(module.name.clone()),
-					section_id: ActiveValue::Set(module.section_id.parse().unwrap()),
-					// todo: map module_type to ContentType enum
-					content_type: ActiveValue::Set(ContentType::Page),
-					updated_at: ActiveValue::NotSet,
+				.map(|section| entity::course_section::ActiveModel {
+					id: ActiveValue::Set(section.id),
+					name: ActiveValue::Set(section.name.clone()),
+					course_id: ActiveValue::Set(course_id),
+				})
+				.collect::<Vec<_>>();
+
+			let items = sections_data
+				.iter()
+				.flat_map(|section| {
+					section
+						.modules
+						.iter()
+						.map(|module| entity::course_section_item::ActiveModel {
+							id: ActiveValue::Set(module.id),
+							name: ActiveValue::Set(module.name.clone()),
+							section_id: ActiveValue::Set(section.id),
+							content_type: ActiveValue::Set(ContentType::Page), // todo: map to actual type
+							updated_at: ActiveValue::NotSet,
+						})
 				})
 				.collect::<Vec<_>>();
 
@@ -238,25 +206,23 @@ pub async fn get_user_courses(
 		"get_user_courses",
 		"Get user courses",
 		async move |app_handle| {
-			let auth_store = app_handle.store("store.json").unwrap();
+			let store = app_handle.store("store.json").unwrap();
 			let client = reqwest::Client::new();
-			let service_method = ServiceMethod::new(0, service_methods::GET_COURSES)
-				.with_offset(0)
-				.with_limit(0)
-				.with_classification("all")
-				.with_sort("fullname");
+			let user_id = store
+				.get(auth_keys::USER_ID)
+				.and_then(|id| id.as_str().and_then(|s| s.parse::<u32>().ok()))
+				.ok_or("Failed to retrieve user id from store")?;
+			let rest_functions = vec![rest::get_user_courses(user_id)];
 
-			let host = auth_store.get(auth_keys::MOODLE_HOST).unwrap();
-			let session_cookie = auth_store.get(auth_keys::MOODLE_SESSION).unwrap();
-			let session_key = auth_store.get(auth_keys::SESSION_KEY).unwrap();
-			let request = build_service_request(
+			let host = store.get(auth_keys::MOODLE_HOST).unwrap();
+			let ws_token = store.get(auth_keys::WS_TOKEN).unwrap();
+			let request = build_rest_request(
 				&client,
 				&host.as_str().unwrap(),
-				session_cookie.as_str().unwrap(),
-				session_key.as_str().unwrap(),
-				vec![service_method],
+				ws_token.as_str().unwrap(),
+				rest_functions,
 			)
-			.unwrap();
+			.map_err(|e| e.to_string())?;
 
 			let response = client.execute(request).await.unwrap();
 			if response.status().is_success() == false {
@@ -274,24 +240,31 @@ pub async fn get_user_courses(
 				return Err(format!("Could not get user courses: {}", body).into());
 			}
 
-			let service_body: Vec<ServiceResponse<ServiceCourses>> =
-				serde_json::from_str(&body).map_err(|e| e.to_string())?;
-			let response_data = service_body
-				.into_iter()
-				.next()
-				.unwrap()
-				.data
-				.unwrap_or_default();
-			let courses = response_data
-				.courses
-				.iter()
-				.map(|course| entity::course::ActiveModel {
-					id: ActiveValue::Set(course.id),
-					name: ActiveValue::Set(course.full_name.clone()),
-					colour: ActiveValue::Set(Some("blue".to_string())),
-					icon: ActiveValue::NotSet,
-				})
-				.collect::<Vec<_>>();
+			// a little annoying, but data returned from the rest api is usually stringified json
+			// here we parse the body into RestResponse, which contains a vector of "responses" (discrete outputs of rest functions)
+			// we then extract the first response, which contains the data we want
+			// finally, we parse the data string into GetCoursesFunctionData, which contains the courses
+			// todo: maybe just move this to a function
+			let rest_response: RestResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+			let data_str = rest_response
+				.responses
+				.get(0)
+				.and_then(|r| r.data.as_ref())
+				.ok_or_else(|| "No data found in response".to_string())?;
+			let parsed_body = serde_json::from_value::<GetCoursesFunctionData>(
+				serde_json::from_str(data_str).map_err(|e| e.to_string())?,
+			)?;
+			let courses = match parsed_body {
+				GetCoursesFunctionData::Courses(courses) => courses
+					.into_iter()
+					.map(|course| entity::course::ActiveModel {
+						id: ActiveValue::Set(course.id),
+						name: ActiveValue::Set(course.full_name.clone()),
+						colour: ActiveValue::Set(Some("brown".to_string())),
+						icon: ActiveValue::NotSet,
+					})
+					.collect::<Vec<_>>(),
+			};
 
 			let state = app_handle.state::<DatabaseState>();
 			let db = &state.0;

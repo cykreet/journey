@@ -1,7 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::time::Duration;
-
 use entity::course::Model as Course;
 use entity::course_section::Model as CourseSection;
 use entity::course_section_item::Model as CourseSectionItem;
@@ -22,9 +20,6 @@ mod auth;
 mod database;
 mod request;
 mod sync;
-
-const SESSION_POLL_INTERVAL: Duration = Duration::from_secs(5 * 60);
-const SESSION_TOUCH_THRESHOLD: Duration = Duration::from_secs(60 * 60);
 
 pub fn main() {
 	let builder = Builder::<tauri::Wry>::new()

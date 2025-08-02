@@ -8,7 +8,7 @@ pub enum ContentType {
 	#[sea_orm(num_value = 0)]
 	Page,
 	#[sea_orm(num_value = 1)]
-	Forum,
+	External,
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Type, Serialize, Deserialize)]
