@@ -21,28 +21,31 @@ enum CourseSection {
 }
 
 #[derive(DeriveIden)]
-enum CourseSectionItem {
+enum SectionModule {
 	Table,
 	Id,
 	SectionId,
 	Name,
-	ContentType,
 	UpdatedAt,
+	ModuleType,
 }
 
 #[derive(DeriveIden)]
 enum ModuleContent {
 	Table,
 	Id,
+	ModuleId,
 	UpdatedAt,
+	Rank,
 	Content,
 }
 
 #[derive(DeriveIden)]
 enum ContentBlob {
 	Table,
-	Id,
 	Name,
+	ModuleContentId,
+	UpdatedAt,
 	MimeType,
 	Path,
 }
@@ -95,37 +98,31 @@ impl MigrationTrait for Migration {
 		manager
 			.create_table(
 				Table::create()
-					.table(CourseSectionItem::Table)
+					.table(SectionModule::Table)
 					.if_not_exists()
 					.col(
-						ColumnDef::new(CourseSectionItem::Id)
+						ColumnDef::new(SectionModule::Id)
 							.integer()
 							.not_null()
 							.primary_key(),
 					)
 					.col(
-						ColumnDef::new(CourseSectionItem::SectionId)
+						ColumnDef::new(SectionModule::SectionId)
 							.integer()
 							.not_null(),
 					)
-					.col(ColumnDef::new(CourseSectionItem::Name).string().not_null())
+					.col(ColumnDef::new(SectionModule::Name).string().not_null())
+					.col(ColumnDef::new(SectionModule::UpdatedAt).integer().null())
 					.col(
-						ColumnDef::new(CourseSectionItem::ContentType)
+						ColumnDef::new(SectionModule::ModuleType)
 							.integer()
-							// .enumeration(Alias::new("content_type"))
-							.not_null()
-							.unsigned(),
-					)
-					.col(
-						ColumnDef::new(CourseSectionItem::UpdatedAt)
-							.integer()
-							.null(),
+							.not_null(),
 					)
 					.foreign_key(
 						ForeignKey::create()
 							.name("fk_course_section_item_section_id")
-							.from(CourseSectionItem::Table, CourseSectionItem::SectionId)
-							.to(CourseSection::Table, CourseSectionItem::Id)
+							.from(SectionModule::Table, SectionModule::SectionId)
+							.to(CourseSection::Table, SectionModule::Id)
 							.on_delete(ForeignKeyAction::Cascade),
 					)
 					.to_owned(),
@@ -137,14 +134,23 @@ impl MigrationTrait for Migration {
 				Table::create()
 					.table(ModuleContent::Table)
 					.if_not_exists()
-					.col(
-						ColumnDef::new(ModuleContent::Id)
-							.integer()
-							.not_null()
-							.primary_key(),
+					.col(ColumnDef::new(ModuleContent::Id).integer().not_null())
+					.col(ColumnDef::new(ModuleContent::ModuleId).integer().not_null())
+					.primary_key(
+						Index::create()
+							.col(ModuleContent::Id)
+							.col(ModuleContent::ModuleId),
 					)
 					.col(ColumnDef::new(ModuleContent::UpdatedAt).integer().null())
-					.col(ColumnDef::new(ModuleContent::Content).text().null())
+					.col(ColumnDef::new(ModuleContent::Rank).integer().not_null())
+					.col(ColumnDef::new(ModuleContent::Content).string().not_null())
+					.foreign_key(
+						ForeignKey::create()
+							.name("fk_module_content_section_module_id")
+							.from(ModuleContent::Table, ModuleContent::ModuleId)
+							.to(SectionModule::Table, SectionModule::Id)
+							.on_delete(ForeignKeyAction::Cascade),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -154,15 +160,27 @@ impl MigrationTrait for Migration {
 				Table::create()
 					.table(ContentBlob::Table)
 					.if_not_exists()
-					.col(
-						ColumnDef::new(ContentBlob::Id)
-							.integer()
-							.not_null()
-							.primary_key(),
-					)
 					.col(ColumnDef::new(ContentBlob::Name).string().not_null())
+					.col(
+						ColumnDef::new(ContentBlob::ModuleContentId)
+							.integer()
+							.not_null(),
+					)
+					.primary_key(
+						Index::create()
+							.col(ContentBlob::Name)
+							.col(ContentBlob::ModuleContentId),
+					)
+					.col(ColumnDef::new(ContentBlob::UpdatedAt).integer().null())
 					.col(ColumnDef::new(ContentBlob::MimeType).string().not_null())
 					.col(ColumnDef::new(ContentBlob::Path).string().not_null())
+					.foreign_key(
+						ForeignKey::create()
+							.name("fk_content_blob_module_content_id")
+							.from(ContentBlob::Table, ContentBlob::ModuleContentId)
+							.to(ModuleContent::Table, ModuleContent::Id)
+							.on_delete(ForeignKeyAction::Cascade),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -180,7 +198,7 @@ impl MigrationTrait for Migration {
 			.await?;
 
 		manager
-			.drop_table(Table::drop().table(CourseSectionItem::Table).to_owned())
+			.drop_table(Table::drop().table(SectionModule::Table).to_owned())
 			.await?;
 
 		manager

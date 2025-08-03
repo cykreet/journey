@@ -28,6 +28,14 @@ async getCourse(courseId: number) : Promise<Result<CourseWithSections, string>> 
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getModuleContent(courseId: number, moduleId: number) : Promise<Result<[SectionModule, ModuleContent[]], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_module_content", { courseId, moduleId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -42,13 +50,13 @@ async getCourse(courseId: number) : Promise<Result<CourseWithSections, string>> 
 /** user-defined types **/
 
 export type AuthStatus = "Failed" | "Success" | "Aborted" | "Pending"
-export type ContentType = "Page" | "External"
 export type Course = { id: number; name: string; colour: string | null; icon: string | null }
 export type CourseSection = { id: number; course_id: number; name: string }
-export type CourseSectionItem = { id: number; section_id: number; name: string; content_type: ContentType; updated_at: number | null }
-export type CourseSectionWithItems = { section: CourseSection; items: CourseSectionItem[] }
+export type CourseSectionWithItems = { section: CourseSection; items: SectionModule[] }
 export type CourseWithSections = { course: Course; sections: CourseSectionWithItems[] }
-export type ModuleContent = { id: number; updated_at: number | null; content: string }
+export type ModuleContent = { id: number; module_id: number; updated_at: bigint; rank: number; content: string }
+export type SectionModule = { id: number; section_id: number; name: string; updated_at: bigint; module_type: SectionModuleType }
+export type SectionModuleType = "page" | "book" | "forum" | "Unknown"
 export type SyncStatus = "Success" | { Failed: string } | "Pending"
 export type SyncTask = { id: string; name: string; last_sync: bigint; sync_status: SyncStatus; error: string | null }
 

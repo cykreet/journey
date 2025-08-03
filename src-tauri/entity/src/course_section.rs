@@ -6,7 +6,7 @@ use specta::Type;
 #[sea_orm(table_name = "course_section")]
 #[specta(rename = "CourseSection")]
 pub struct Model {
-	#[sea_orm(primary_key)]
+	#[sea_orm(primary_key, auto_increment = false)]
 	pub id: i32,
 	pub course_id: i32,
 	pub name: String,
@@ -20,8 +20,12 @@ pub enum Relation {
 		to = "super::course::Column::Id"
 	)]
 	Course,
-	#[sea_orm(has_many = "super::course_section_item::Entity")]
-	CourseSectionItem,
+	#[sea_orm(
+		has_many = "super::section_module::Entity",
+		from = "Column::Id",
+		to = "super::section_module::Column::SectionId"
+	)]
+	SectionModule,
 }
 
 impl Related<super::course::Entity> for Entity {
@@ -30,9 +34,9 @@ impl Related<super::course::Entity> for Entity {
 	}
 }
 
-impl Related<super::course_section_item::Entity> for Entity {
+impl Related<super::section_module::Entity> for Entity {
 	fn to() -> RelationDef {
-		Relation::CourseSectionItem.def()
+		Relation::SectionModule.def()
 	}
 }
 

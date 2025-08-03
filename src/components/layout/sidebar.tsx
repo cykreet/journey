@@ -17,7 +17,7 @@ export const Sidebar = () => {
 				</Link>
 				<hr className="border-ivory/10 my-3" />
 				{courses.data?.map((course) => (
-					<Link href={`/course/${course.id}/introduction`} className="sweep-up" key={course.id}>
+					<Link href={`/course/${course.id}`} className="sweep-up" key={course.id}>
 						<div
 							className="bg-wood-300 w-0.5 h-8 absolute left-1.5 rounded-full"
 							style={{ display: location.startsWith(`/course/${course.id}`) ? "block" : "none" }}

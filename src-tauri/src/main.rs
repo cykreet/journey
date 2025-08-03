@@ -2,8 +2,8 @@
 
 use entity::course::Model as Course;
 use entity::course_section::Model as CourseSection;
-use entity::course_section_item::Model as CourseSectionItem;
 use entity::module_content::Model as ModuleContent;
+use entity::section_module::Model as CourseSectionItem;
 
 use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
 use tauri::async_runtime::Mutex;
@@ -12,7 +12,7 @@ use tauri_specta::{collect_commands, Builder};
 
 use crate::auth::{open_login_window, AuthState, AuthStatus};
 use crate::request::course::{
-	get_course, get_user_courses, CourseSectionWithItems, CourseWithSections,
+	get_course, get_module_content, get_user_courses, CourseSectionWithItems, CourseWithSections,
 };
 use crate::sync::{SyncState, SyncTask};
 
@@ -27,6 +27,7 @@ pub fn main() {
 			open_login_window,
 			get_user_courses,
 			get_course,
+			get_module_content
 		])
 		.typ::<Course>()
 		.typ::<CourseSection>()

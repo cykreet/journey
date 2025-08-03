@@ -1,9 +1,10 @@
 use std::vec;
 
-use entity::course_section_item::ContentType;
+use entity::section_module::SectionModuleType;
 use sea_orm::{sea_query, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use sqlx::types::chrono::Utc;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_store::StoreExt;
@@ -11,9 +12,7 @@ use tauri_plugin_store::StoreExt;
 use crate::{
 	auth::auth_keys,
 	database::DatabaseState,
-	request::rest::{
-		self, build_rest_request, GetCourseSectionsFunctionData, GetCoursesFunctionData, RestResponse,
-	},
+	request::rest::{self, RestCourse, RestCourseSection},
 	sync::{self},
 };
 
@@ -26,7 +25,7 @@ pub struct CourseWithSections {
 #[derive(Serialize, Deserialize, Type)]
 pub struct CourseSectionWithItems {
 	pub section: entity::course_section::Model,
-	pub items: Vec<entity::course_section_item::Model>,
+	pub items: Vec<entity::section_module::Model>,
 }
 
 #[tauri::command]
@@ -37,21 +36,19 @@ pub async fn get_course(
 	course_id: i32,
 ) -> Result<CourseWithSections, String> {
 	sync::revalidate_task(
-		&app,
-		format!("get_course_{}", course_id).as_str(),
-		"Get course state",
+		app,
+		format!("get_course_{}", course_id),
+		"Get course state".to_string(),
 		async move |app_handle| {
 			let store = app_handle.store("store.json").unwrap();
 			let client = reqwest::Client::new();
-			let rest_functions = vec![rest::get_course_sections(course_id, true)];
-
 			let host = store.get(auth_keys::MOODLE_HOST).unwrap();
 			let ws_token = store.get(auth_keys::WS_TOKEN).unwrap();
-			let request = build_rest_request(
+			let request = rest::get_course_sections_request(
+				course_id,
 				&client,
-				&host.as_str().unwrap(),
+				host.as_str().unwrap(),
 				ws_token.as_str().unwrap(),
-				rest_functions,
 			)
 			.map_err(|e| e.to_string())?;
 
@@ -62,52 +59,23 @@ pub async fn get_course(
 
 			let body = response.text().await.unwrap();
 			if body.contains("errorcode") {
-				return Err(format!("Could not get user courses: {}", body).into());
+				return Err(format!("Could not get course: {}", body).into());
 			}
 
-			let rest_response: RestResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
-			let data_str = rest_response
-				.responses
-				.get(0)
-				.and_then(|r| r.data.as_ref())
-				.ok_or_else(|| "No data found in response".to_string())?;
-			let parsed_body = serde_json::from_value::<GetCourseSectionsFunctionData>(
-				serde_json::from_str(data_str).map_err(|e| e.to_string())?,
-			)?;
-			let sections_data = match parsed_body {
-				GetCourseSectionsFunctionData::Sections(sections) => sections,
-			};
-
-			let sections = sections_data
-				.iter()
-				.map(|section| entity::course_section::ActiveModel {
-					id: ActiveValue::Set(section.id),
-					name: ActiveValue::Set(section.name.clone()),
-					course_id: ActiveValue::Set(course_id),
-				})
-				.collect::<Vec<_>>();
-
-			let items = sections_data
-				.iter()
-				.flat_map(|section| {
-					section
-						.modules
-						.iter()
-						.map(|module| entity::course_section_item::ActiveModel {
-							id: ActiveValue::Set(module.id),
-							name: ActiveValue::Set(module.name.clone()),
-							section_id: ActiveValue::Set(section.id),
-							content_type: ActiveValue::Set(ContentType::Page), // todo: map to actual type
-							updated_at: ActiveValue::NotSet,
-						})
-				})
-				.collect::<Vec<_>>();
-
+			let sections_data: Vec<RestCourseSection> =
+				serde_json::from_str(&body).map_err(|e| e.to_string())?;
 			let state = app_handle.state::<DatabaseState>();
 			let db = &state.0;
 			let txn = db.begin().await.map_err(|e| e.to_string())?;
-			for section in sections {
-				entity::CourseSection::insert(section)
+
+			for section in sections_data {
+				let section_entity = entity::course_section::ActiveModel {
+					id: ActiveValue::Set(section.id),
+					name: ActiveValue::Set(section.name.clone()),
+					course_id: ActiveValue::Set(course_id),
+				};
+
+				entity::CourseSection::insert(section_entity)
 					.on_conflict(
 						sea_query::OnConflict::column(entity::course_section::Column::Id)
 							.update_columns([
@@ -119,22 +87,30 @@ pub async fn get_course(
 					.exec(&txn)
 					.await
 					.map_err(|e| e.to_string())?;
-			}
 
-			for item in items {
-				entity::CourseSectionItem::insert(item)
-					.on_conflict(
-						sea_query::OnConflict::column(entity::course_section_item::Column::Id)
-							.update_columns([
-								entity::course_section_item::Column::Name,
-								entity::course_section_item::Column::SectionId,
-								entity::course_section_item::Column::ContentType,
-							])
-							.to_owned(),
-					)
-					.exec(&txn)
-					.await
-					.map_err(|e| e.to_string())?;
+				for module in section.modules {
+					let section_item = entity::section_module::ActiveModel {
+						id: ActiveValue::Set(module.id),
+						name: ActiveValue::Set(module.name.clone()),
+						section_id: ActiveValue::Set(section.id),
+						module_type: ActiveValue::Set(module.module_type),
+						updated_at: ActiveValue::Set(Utc::now().timestamp()),
+					};
+
+					entity::SectionModule::insert(section_item)
+						.on_conflict(
+							sea_query::OnConflict::column(entity::section_module::Column::Id)
+								.update_columns([
+									entity::section_module::Column::Name,
+									entity::section_module::Column::SectionId,
+									entity::section_module::Column::UpdatedAt,
+								])
+								.to_owned(),
+						)
+						.exec(&txn)
+						.await
+						.map_err(|e| e.to_string())?;
+				}
 			}
 
 			txn.commit().await.map_err(|e| e.to_string())?;
@@ -155,8 +131,8 @@ pub async fn get_course(
 
 	let mut sections_with_items = vec![];
 	for section in sections {
-		let items = entity::CourseSectionItem::find()
-			.filter(entity::course_section_item::Column::SectionId.eq(section.id))
+		let items = entity::SectionModule::find()
+			.filter(entity::section_module::Column::SectionId.eq(section.id))
 			.all(db)
 			.await
 			.map_err(|e| e.to_string())?;
@@ -172,28 +148,219 @@ pub async fn get_course(
 	})
 }
 
-// #[tauri::command]
-// #[specta::specta]
-// pub async fn get_module_content(
-// 	app: AppHandle,
-// 	state: tauri::State<'_, DatabaseState>,
-// 	module_id: i32,
-// ) -> Result<entity::module_content::Model, String> {
-// 	sync::revalidate_task(
-// 		&app,
-// 		format!("get_module_{}", module_id).as_str(),
-// 		"Get module",
-// 		async move |app_handle| {},
-// 	)
-// 	.await;
+#[tauri::command]
+#[specta::specta]
+pub async fn get_module_content(
+	app: AppHandle,
+	state: tauri::State<'_, DatabaseState>,
+	course_id: i32,
+	module_id: i32,
+) -> Result<
+	(
+		entity::section_module::Model,
+		Vec<entity::module_content::Model>,
+	),
+	String,
+> {
+	sync::revalidate_task(
+		app,
+		format!("get_module_content_{}", module_id),
+		"Get module content".to_string(),
+		async move |app_handle| {
+			let store = app_handle.store("store.json").unwrap();
+			let client = reqwest::Client::new();
+			let token = store.get(auth_keys::WS_TOKEN).unwrap();
+			let token = token.as_str().unwrap();
+			let request = rest::get_sections_with_model_content(
+				course_id,
+				module_id,
+				&client,
+				store.get(auth_keys::MOODLE_HOST).unwrap().as_str().unwrap(),
+				token,
+			)
+			.map_err(|e| e.to_string())?;
 
-// 	let db = &state.0;
-// 	entity::ModuleContent::find_by_id(module_id)
-// 		.one(db)
-// 		.await
-// 		.map_err(|error| error.to_string())?
-// 		.ok_or_else(|| format!("Module with id {} not found", module_id))
-// }
+			let response = client.execute(request).await.unwrap();
+			if response.status().is_success() == false {
+				return Err(format!("Failed to fetch module content with id: {module_id}").into());
+			}
+
+			let body = response.text().await.unwrap();
+			if body.contains("errorcode") {
+				return Err(format!("Could not get module content: {}", body).into());
+			}
+
+			let sections_data: Vec<RestCourseSection> =
+				serde_json::from_str(&body).map_err(|e| e.to_string())?;
+			let module = sections_data
+				.into_iter()
+				.flat_map(|section| section.modules)
+				.find(|module| module.id == module_id)
+				.ok_or_else(|| format!("Module with id {} not found", module_id))?;
+
+			if matches!(
+				module.module_type,
+				SectionModuleType::Page | SectionModuleType::Book
+			) == false
+			{
+				return Err(format!("Module type {} is not supported", module.module_type).into());
+			}
+
+			let module_contents = module.contents.unwrap_or_default();
+			let state = app_handle.state::<DatabaseState>();
+			let db = &state.0;
+			let txn = db.begin().await.map_err(|e| e.to_string())?;
+
+			for (i, content) in module_contents.iter().enumerate() {
+				// ids of the content blocks stored in file path as "/id/"
+				// media content also uses this to refer to the relevant content block.
+				// the "root" content block seems to always have a path of "/", which is usually
+				// included if it doesn't contain any other content
+				let content_id = if content.file_path == "/" {
+					1
+				} else {
+					content.file_path[1..content.file_path.len() - 1]
+						.parse::<i32>()
+						.map_err(|e| e.to_string())?
+				};
+
+				// "books" have an additional structure content object that contains the hierarchy of the contents,
+				// not sure how i wanna handle books, but storing content blocks as they appear in the response is fine for now
+
+				// written content is usually in an index.html file.
+				// we generally wanna store text content directly,  blobs being
+				// stored on the filesystem, with paths stored in the database.
+				if content.file_name == "index.html" {
+					let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
+					let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
+					if content_response.status().is_success() == false {
+						return Err(format!("Failed to fetch content for content id: {}", content_id).into());
+					}
+
+					// todo: gonna need to somehow run through the content looking for any occurrences of
+					// our stored content blobs, and replace them with the actual file paths
+					let content_text = content_response.text().await.map_err(|e| e.to_string())?;
+					let module_content = entity::module_content::ActiveModel {
+						id: ActiveValue::Set(content_id),
+						module_id: ActiveValue::Set(module_id),
+						content: ActiveValue::Set(content_text),
+						rank: ActiveValue::Set(i as i32),
+						updated_at: ActiveValue::Set(Utc::now().timestamp()),
+					};
+
+					entity::ModuleContent::insert(module_content)
+						.on_conflict(
+							sea_query::OnConflict::columns([
+								entity::module_content::Column::Id,
+								entity::module_content::Column::ModuleId,
+							])
+							.update_columns([
+								entity::module_content::Column::Content,
+								entity::module_content::Column::Rank,
+								entity::module_content::Column::UpdatedAt,
+							])
+							.to_owned(),
+						)
+						.exec(&txn)
+						.await
+						.map_err(|e| e.to_string())?;
+				}
+
+				if let Some(mime_type) = &content.mime_type {
+					let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
+					let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
+					if content_response.status().is_success() == false {
+						return Err(
+							format!(
+								"Failed to fetch content blob for content id: {}",
+								content_id
+							)
+							.into(),
+						);
+					}
+
+					let app_dir = app_handle
+						.path()
+						.app_data_dir()
+						.expect("failed to get app data dir");
+					let path = app_dir
+						.join("content_blobs")
+						.join(module_id.to_string())
+						.join(&content.file_name);
+					let blob = content_response.bytes().await.map_err(|e| e.to_string())?;
+					std::fs::create_dir_all(app_dir.join("content_blobs").join(module_id.to_string()))
+						.map_err(|e| e.to_string())?;
+					std::fs::write(&path, blob).map_err(|e| e.to_string())?;
+
+					let content_blob = entity::content_blob::ActiveModel {
+						name: ActiveValue::Set(content.file_name.clone()),
+						module_content_id: ActiveValue::Set(content_id),
+						updated_at: ActiveValue::Set(Utc::now().timestamp()),
+						mime_type: ActiveValue::Set(mime_type.to_string()),
+						path: ActiveValue::Set(path.to_str().unwrap().to_string()),
+					};
+
+					entity::ContentBlob::insert(content_blob)
+						.on_conflict(
+							sea_query::OnConflict::columns([
+								entity::content_blob::Column::Name,
+								entity::content_blob::Column::ModuleContentId,
+							])
+							.update_columns([
+								entity::content_blob::Column::ModuleContentId,
+								entity::content_blob::Column::UpdatedAt,
+								entity::content_blob::Column::MimeType,
+								entity::content_blob::Column::Path,
+							])
+							.to_owned(),
+						)
+						.exec(&txn)
+						.await
+						.map_err(|e| e.to_string())?;
+				}
+			}
+
+			// match module.module_type {
+			// 	RestCourseSectionModuleType::Book => {
+			// 		let structure_content = module_contents.iter().find(|content| {
+			// 			content.content_type == RestCourseSectionModuleContentType::Content
+			// 				&& content.file_name == "structure"
+			// 		});
+
+			// 		if let Some(structure_content) = structure_content {
+			// 			let structure: Vec<rest::RestCourseSectionModuleStructureItem> =
+			// 				serde_json::from_str(&structure_content.content.as_ref().unwrap())
+			// 					.map_err(|e| e.to_string())?;
+
+			// 			for item in structure
+			// 				.iter()
+			// 				.flat_map(|item| item.sub_items.iter().flatten())
+			// 			{
+
+			// 			}
+			// 		}
+			// 	}
+			// }
+
+			txn.commit().await.map_err(|e| e.to_string())?;
+			Ok(())
+		},
+	)
+	.await;
+
+	let db = &state.0;
+	let module_with_content = entity::SectionModule::find_by_id(module_id)
+		.find_with_related(entity::ModuleContent)
+		.all(db)
+		.await
+		.map_err(|error| error.to_string())?;
+
+	if module_with_content.is_empty() {
+		return Err(format!("Module with id {} not found", module_id).into());
+	}
+
+	Ok(module_with_content[0].clone())
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -202,9 +369,9 @@ pub async fn get_user_courses(
 	state: tauri::State<'_, DatabaseState>,
 ) -> Result<Vec<entity::course::Model>, String> {
 	sync::revalidate_task(
-		&app,
-		"get_user_courses",
-		"Get user courses",
+		app,
+		"get_user_courses".to_string(),
+		"Get user courses".to_string(),
 		async move |app_handle| {
 			let store = app_handle.store("store.json").unwrap();
 			let client = reqwest::Client::new();
@@ -212,17 +379,12 @@ pub async fn get_user_courses(
 				.get(auth_keys::USER_ID)
 				.and_then(|id| id.as_str().and_then(|s| s.parse::<u32>().ok()))
 				.ok_or("Failed to retrieve user id from store")?;
-			let rest_functions = vec![rest::get_user_courses(user_id)];
 
 			let host = store.get(auth_keys::MOODLE_HOST).unwrap();
 			let ws_token = store.get(auth_keys::WS_TOKEN).unwrap();
-			let request = build_rest_request(
-				&client,
-				&host.as_str().unwrap(),
-				ws_token.as_str().unwrap(),
-				rest_functions,
-			)
-			.map_err(|e| e.to_string())?;
+			let request =
+				rest::get_user_courses_request(user_id, host.as_str().unwrap(), ws_token.as_str().unwrap())
+					.map_err(|e| e.to_string())?;
 
 			let response = client.execute(request).await.unwrap();
 			if response.status().is_success() == false {
@@ -240,35 +402,22 @@ pub async fn get_user_courses(
 				return Err(format!("Could not get user courses: {}", body).into());
 			}
 
-			// a little annoying, but data returned from the rest api is usually stringified json
-			// here we parse the body into RestResponse, which contains a vector of "responses" (discrete outputs of rest functions)
-			// we then extract the first response, which contains the data we want
-			// finally, we parse the data string into GetCoursesFunctionData, which contains the courses
-			// todo: maybe just move this to a function
-			let rest_response: RestResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
-			let data_str = rest_response
-				.responses
-				.get(0)
-				.and_then(|r| r.data.as_ref())
-				.ok_or_else(|| "No data found in response".to_string())?;
-			let parsed_body = serde_json::from_value::<GetCoursesFunctionData>(
-				serde_json::from_str(data_str).map_err(|e| e.to_string())?,
-			)?;
-			let courses = match parsed_body {
-				GetCoursesFunctionData::Courses(courses) => courses
-					.into_iter()
-					.map(|course| entity::course::ActiveModel {
-						id: ActiveValue::Set(course.id),
-						name: ActiveValue::Set(course.full_name.clone()),
-						colour: ActiveValue::Set(Some("brown".to_string())),
-						icon: ActiveValue::NotSet,
-					})
-					.collect::<Vec<_>>(),
-			};
+			let course_data =
+				serde_json::from_str::<Vec<RestCourse>>(&body).map_err(|e| e.to_string())?;
+			let courses = course_data
+				.into_iter()
+				.map(|course| entity::course::ActiveModel {
+					id: ActiveValue::Set(course.id),
+					name: ActiveValue::Set(course.full_name),
+					colour: ActiveValue::Set(Some("brown".to_string())),
+					icon: ActiveValue::Set(None),
+				})
+				.collect::<Vec<_>>();
 
 			let state = app_handle.state::<DatabaseState>();
 			let db = &state.0;
 			let txn = db.begin().await.map_err(|e| e.to_string())?;
+
 			for course in courses {
 				entity::Course::insert(course)
 					.on_conflict(

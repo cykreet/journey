@@ -2,25 +2,36 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(EnumIter, DeriveActiveEnum, Type, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(
+	EnumIter, DeriveActiveEnum, Debug, DeriveDisplay, Serialize, Deserialize, PartialEq, Clone, Type,
+)]
 #[sea_orm(rs_type = "i32", db_type = "Integer")]
-pub enum ContentType {
+pub enum SectionModuleType {
+	#[serde(rename = "page")]
 	#[sea_orm(num_value = 0)]
 	Page,
+	#[serde(rename = "book")]
 	#[sea_orm(num_value = 1)]
-	External,
+	Book,
+	// todo: forums would have separate a forum_content (or similar) entity
+	#[serde(rename = "forum")]
+	#[sea_orm(num_value = 2)]
+	Forum,
+	#[serde(other)]
+	#[sea_orm(num_value = -1)]
+	Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Type, Serialize, Deserialize)]
-#[sea_orm(table_name = "course_section_item")]
-#[specta(rename = "CourseSectionItem")]
+#[sea_orm(table_name = "section_module")]
+#[specta(rename = "SectionModule")]
 pub struct Model {
-	#[sea_orm(primary_key)]
+	#[sea_orm(primary_key, auto_increment = false)]
 	pub id: i32,
 	pub section_id: i32,
 	pub name: String,
-	pub content_type: ContentType,
-	pub updated_at: Option<i32>,
+	pub updated_at: i64,
+	pub module_type: SectionModuleType,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -31,7 +42,11 @@ pub enum Relation {
 		to = "super::course_section::Column::Id"
 	)]
 	Section,
-	#[sea_orm(has_one = "super::module_content::Entity")]
+	#[sea_orm(
+		has_many = "super::module_content::Entity",
+		from = "Column::Id",
+		to = "super::module_content::Column::ModuleId"
+	)]
 	ModuleContent,
 }
 

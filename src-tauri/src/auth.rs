@@ -74,7 +74,7 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 		.map_err(|_| "invalid domain".to_string())?;
 
 	if validate_response.status().is_success() == false {
-		return Err("invalid domain".to_string());
+		return Err("invalid moodle instance".to_string());
 	}
 
 	let host = host.to_string();
@@ -124,6 +124,8 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 				return false;
 			}
 
+			println!("Token: {}", token_parts[1]);
+
 			let host = host.clone();
 			tauri::async_runtime::block_on(async move {
 				let site_info_response = reqwest::Client::new()
@@ -169,6 +171,8 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 					})
 					.unwrap();
 
+				// todo: store user data in separate table with data like enrolled courses
+				// probably means we also have to encrypt course data
 				store.set(auth_keys::USER_ID, site_info.user_id.to_string());
 				store.set(auth_keys::MOODLE_HOST, host);
 				store.set(auth_keys::WS_TOKEN, token_parts[1]);

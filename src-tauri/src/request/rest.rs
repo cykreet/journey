@@ -1,41 +1,11 @@
-use ::serde::{Deserialize, Serialize};
+use ::serde::Deserialize;
+use entity::section_module::SectionModuleType;
 use tauri::http::{HeaderMap, HeaderValue};
 use tauri_plugin_http::reqwest::{self};
 
 pub mod rest_functions {
 	pub const GET_USER_COURSES: &str = "core_enrol_get_users_courses";
-	// pub const GET_COURSES_BY_FIELD: &str = "core_course_get_courses_by_field";
-	pub const GET_COURSE_SECTIONS: &str = "core_course_get_contents";
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RestResponse {
-	pub responses: Vec<FunctionResponse>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct FunctionResponse {
-	pub error: bool,
-	pub data: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RestRequestBody {
-	pub requests: String,
-	#[serde(rename = "wsfunction")]
-	pub ws_function: String,
-	#[serde(rename = "wstoken")]
-	pub ws_token: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RestFunctionCall {
-	pub function: String,
-	pub args: serde_json::Value,
-	#[serde(rename = "settingfileurl")]
-	pub setting_file_url: u32,
-	#[serde(rename = "settingfilter")]
-	pub setting_filter: u32,
+	pub const GET_COURSE_CONTENT: &str = "core_course_get_contents";
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,36 +13,64 @@ pub struct RestCourseSection {
 	pub id: i32,
 	pub name: String,
 	#[serde(rename = "section")]
-	pub number: i32,
+	pub rank: i32,
 	pub modules: Vec<RestCourseSectionModule>,
 }
+
+// #[derive(Debug, Deserialize, PartialEq)]
+// pub enum RestCourseSectionModuleType {
+// 	#[serde(rename = "page")]
+// 	Page,
+// 	#[serde(rename = "book")]
+// 	Book,
+// 	#[serde(rename = "forum")]
+// 	Forum,
+// }
 
 #[derive(Debug, Deserialize)]
 pub struct RestCourseSectionModule {
 	pub id: i32,
 	pub name: String,
 	pub description: Option<String>,
-	pub contents: Option<RestCourseSectionModuleContent>,
+	#[serde(rename = "modname")]
+	pub module_type: SectionModuleType,
+	pub contents: Option<Vec<RestCourseSectionModuleContent>>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub enum RestCourseSectionModuleContentType {
+	#[serde(rename = "file")]
+	File,
+	#[serde(rename = "content")]
+	Content,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RestCourseSectionModuleContent {
 	#[serde(rename = "filename")]
-	pub file_name: Option<String>,
+	pub file_name: String,
 	#[serde(rename = "filepath")]
-	pub file_path: Option<String>,
+	pub file_path: String,
 	#[serde(rename = "fileurl")]
-	pub file_url: Option<String>,
+	pub file_url: String,
 	#[serde(rename = "timemodified")]
 	pub time_modified: u64,
 	#[serde(rename = "mimetype")]
 	pub mime_type: Option<String>,
 	#[serde(rename = "isexternalfile")]
-	pub is_external_file: bool,
+	pub is_external_file: Option<bool>,
 	#[serde(rename = "type")]
-	pub content_type: String,
+	pub content_type: RestCourseSectionModuleContentType,
 	#[serde(rename = "content")]
 	pub content: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RestCourseSectionModuleStructureItem {
+	pub title: String,
+	pub href: String,
+	#[serde(rename = "subitems")]
+	pub sub_items: Option<Vec<RestCourseSectionModuleStructureItem>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,29 +80,11 @@ pub struct RestCourse {
 	pub full_name: String,
 }
 
-// rest_functions::GET_COURSES_BY_FIELD
-// https://github.com/moodlehq/moodleapp/blob/main/src/core/features/courses/services/courses.ts#L480
-#[derive(Debug, Deserialize)]
-// untagged means enum variants are not relevant to deserialisation, only the contained types
-// https://serde.rs/enum-representations.html#untagged
-#[serde(untagged)]
-pub enum GetCoursesFunctionData {
-	Courses(Vec<RestCourse>),
-}
-
-// rest_functions::GET_COURSE_SECTIONS
-// https://github.com/moodlehq/moodleapp/blob/main/src/core/features/course/services/course.ts#L895
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-pub enum GetCourseSectionsFunctionData {
-	Sections(Vec<RestCourseSection>),
-}
-
-pub fn build_rest_request(
+fn build_rest_request(
 	client: &reqwest::Client,
 	host: &str,
-	token: &str,
-	functions: Vec<RestFunctionCall>,
+	ws_token: &str,
+	form: &mut std::collections::HashMap<String, String>,
 ) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
 	let endpoint = format!("{host}/webservice/rest/server.php");
 	let mut headers = HeaderMap::new();
@@ -115,54 +95,71 @@ pub fn build_rest_request(
 		HeaderValue::from_static("moodleappfs://localhost"),
 	);
 
-	let mut form = std::collections::HashMap::new();
 	form.insert("moodlewsrestformat".to_string(), "json".to_string());
-	form.insert(
-		"wsfunction".to_string(),
-		"tool_mobile_call_external_functions".to_string(),
-	);
 	form.insert("moodlewssettinglang".to_string(), "en".to_string());
-	form.insert("wstoken".to_string(), token.to_string());
-
-	for (i, func) in functions.iter().enumerate() {
-		form.insert(format!("requests[{}][function]", i), func.function.clone());
-		form.insert(
-			format!("requests[{}][settingfileurl]", i),
-			func.setting_file_url.to_string(),
-		);
-		form.insert(
-			format!("requests[{}][settingfilter]", i),
-			func.setting_filter.to_string(),
-		);
-		form.insert(format!("requests[{}][arguments]", i), func.args.to_string());
-	}
+	form.insert("wstoken".to_string(), ws_token.to_string());
 
 	Ok(client.post(endpoint).headers(headers).form(&form).build()?)
 }
 
-// pub fn get_courses_by_field(field: &str, value: &str) -> RestFunctionCall {
-// 	RestFunctionCall {
-// 		function: rest_functions::GET_COURSES_BY_FIELD.to_string(),
-// 		args: serde_json::json!({ "field": field, "value": value }),
-// 		setting_file_url: 1,
-// 		setting_filter: 1,
-// 	}
-// }
+pub fn get_user_courses_request(
+	user_id: u32,
+	host: &str,
+	ws_token: &str,
+) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
+	let form = &mut std::collections::HashMap::new();
+	form.insert("userid".to_string(), user_id.to_string());
+	form.insert(
+		"wsfunction".to_string(),
+		rest_functions::GET_USER_COURSES.to_string(),
+	);
 
-pub fn get_user_courses(user_id: u32) -> RestFunctionCall {
-	RestFunctionCall {
-		function: rest_functions::GET_USER_COURSES.to_string(),
-		args: serde_json::json!({ "userid": user_id, "returnusercount": "0" }),
-		setting_file_url: 1,
-		setting_filter: 1,
-	}
+	build_rest_request(&reqwest::Client::new(), host, ws_token, form)
 }
 
-pub fn get_course_sections(course_id: i32, exclude_contents: bool) -> RestFunctionCall {
-	RestFunctionCall {
-		function: rest_functions::GET_COURSE_SECTIONS.to_string(),
-		args: serde_json::json!({ "courseid": course_id, "options": [{ "name": "excludecontents", "value": exclude_contents }] }),
-		setting_file_url: 1,
-		setting_filter: 1,
-	}
+pub fn get_course_sections_request(
+	course_id: i32,
+	client: &reqwest::Client,
+	host: &str,
+	ws_token: &str,
+) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
+	let form = &mut std::collections::HashMap::new();
+	form.insert(
+		"wsfunction".to_string(),
+		rest_functions::GET_COURSE_CONTENT.to_string(),
+	);
+	form.insert(
+		"options[0][name]".to_string(),
+		"excludecontents".to_string(),
+	);
+	form.insert("courseid".to_string(), course_id.to_string());
+	form.insert("options[0][value]".to_string(), "1".to_string());
+
+	build_rest_request(&client, host, ws_token, form)
+}
+
+/// this endpoint returns data similar to the course content endpoint (used for sections and modules),
+/// but it also includes only the specified module's content
+pub fn get_sections_with_model_content(
+	course_id: i32,
+	module_id: i32,
+	client: &reqwest::Client,
+	host: &str,
+	ws_token: &str,
+) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
+	let form = &mut std::collections::HashMap::new();
+	form.insert(
+		"wsfunction".to_string(),
+		rest_functions::GET_COURSE_CONTENT.to_string(),
+	);
+	form.insert("courseid".to_string(), course_id.to_string());
+	form.insert(
+		"options[0][name]".to_string(),
+		"includestealthmodules".to_string(),
+	);
+	form.insert("options[0][value]".to_string(), "1".to_string());
+	form.insert("options[1][name]".to_string(), "cmid".to_string());
+	form.insert("options[1][value]".to_string(), module_id.to_string());
+
+	build_rest_request(&client, host, ws_token, form)
 }
