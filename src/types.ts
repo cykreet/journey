@@ -4,10 +4,3 @@ export enum AuthStatus {
 	Aborted = "Aborted",
 	Pending = "Pending",
 }
-
-export enum SessionStatus {
-	Valid = "Valid",
-	Invalid = "Invalid",
-	Expired = "Expired",
-	Unknown = "Unknown",
-}

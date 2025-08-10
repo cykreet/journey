@@ -1,15 +1,13 @@
-import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useRef, useState } from "react";
 import IconJourney from "~icons/journey/journey";
-import { type AuthStatus as AuthStatusPayload, commands } from "../bindings";
+import { type AuthStatus as AuthStatusPayload, commands, events } from "../bindings";
 import { Button } from "../components/button";
 import { Dialog, DialogBodyFailed, DialogBodySuccess } from "../components/dialog";
 import { Input } from "../components/input";
-import { AuthStatus, SessionStatus } from "../types";
+import { AuthStatus } from "../types";
 import { getVersion } from "@tauri-apps/api/app";
 import { navigate } from "wouter/use-browser-location";
 import IconArrowRight from "~icons/tabler/arrow-right";
-import { useSessionStatus } from "../hooks/useSessionStatus";
 
 export const Index = () => {
 	const [showDialog, setShowDialog] = useState(false);
@@ -17,14 +15,9 @@ export const Index = () => {
 	const [loading, setLoading] = useState(false);
 	const [host, setHost] = useState("");
 	const [version, setVersion] = useState("");
-	const sessionStatus = useSessionStatus();
 
 	const timerRef = useRef<number>();
 	const authStateRef = useRef<AuthStatusPayload>();
-
-	useEffect(() => {
-		if (sessionStatus === SessionStatus.Valid) return navigate("/home");
-	}, [sessionStatus]);
 
 	useEffect(() => {
 		getVersion().then(setVersion);
@@ -32,7 +25,7 @@ export const Index = () => {
 	}, [authStatus]);
 
 	useEffect(() => {
-		const unlistenPromise = listen<AuthStatusPayload>("moodle_auth", (event) => {
+		const unlistenPromise = events.moodleAuthEvent.listen((event) => {
 			setLoading(false);
 			if (event.payload !== AuthStatus.Aborted) setShowDialog(true);
 			setAuthStatus(event.payload);
@@ -88,7 +81,7 @@ export const Index = () => {
 							<h1>Journey</h1>
 							<div className="text-sm border border-ivory/10 rounded-md p-1 text-wood-100">v{version}</div>
 						</div>
-						<span>
+						<span className="w-3/4">
 							Get started by authenticating with your Moodle instance.
 							<a
 								className="text-sm ml-0.5 text-wood-100 align-top"

@@ -42,12 +42,12 @@ export const MenuSidebar = ({ sections, loading, header }: MenuSidebarProps) => 
 						<SidebarItem loading />
 					</div>
 				)) ||
-					sections?.map((sections) => {
+					sections?.map((section) => {
 						return (
 							// biome-ignore lint/correctness/useJsxKeyInIterable: <explanation>
 							<React.Fragment>
-								<span className="text-xs text-ivory/60">{sections.name}</span>
-								{sections.subItems?.map((item) => {
+								<span className="text-xs text-ivory/60">{section.name}</span>
+								{section.subItems?.map((item) => {
 									return (
 										// biome-ignore lint/correctness/useJsxKeyInIterable: <explanation>
 										<div className="flex flex-col space-y-1">

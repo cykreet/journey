@@ -1,3 +1,4 @@
+import { info } from "@tauri-apps/plugin-log";
 import { useEffect, useState } from "react";
 import type { Result } from "../bindings";
 
@@ -7,8 +8,6 @@ export interface Command<T> {
 	loading?: boolean;
 }
 
-// todo: maybe add optional parameters for data events and listeners
-// so commands have the option to update data without re-fetching
 export const useCommand = <T>(
 	command: (...args: any) => Promise<Result<T, unknown>>,
 	...args: Parameters<typeof command>
@@ -19,20 +18,34 @@ export const useCommand = <T>(
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
+		const cacheKey = `command-${command.name}-${JSON.stringify(args)}`;
+		// todo: logging not working for some reason
+		info(`using cache key: ${cacheKey}`);
+		const getCachedData = () => {
+			try {
+				const cachedData = localStorage.getItem(cacheKey);
+				if (cachedData == null) return undefined;
+				return JSON.parse(cachedData) as T;
+			} catch {
+				return undefined;
+			}
+		};
+
 		let cancelled = false;
 		const executeCommand = async () => {
 			setLoading(true);
 			setError(undefined);
 
 			try {
-				if (cancelled) return;
 				const result = await command(...args);
-				if (result.status !== "ok") {
+				if (cancelled) return;
+				if (result.status === "ok") {
+					setCommandValue(result.data);
+					localStorage.setItem(cacheKey, JSON.stringify(result.data));
+					setError(undefined);
+				} else {
 					setError(result.error as string);
 					setCommandValue(undefined);
-				} else {
-					setCommandValue(result.data);
-					setError(undefined);
 				}
 			} catch (err) {
 				setError(String(err));
@@ -42,6 +55,7 @@ export const useCommand = <T>(
 			}
 		};
 
+		setCommandValue(getCachedData());
 		executeCommand();
 		return () => {
 			cancelled = true;

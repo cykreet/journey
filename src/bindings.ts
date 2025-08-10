@@ -42,23 +42,27 @@ async getModuleContent(courseId: number, moduleId: number) : Promise<Result<[Sec
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+moodleAuthEvent: MoodleAuthEvent
+}>({
+moodleAuthEvent: "moodle-auth-event"
+})
 
 /** user-defined constants **/
 
-
+export const SUPPORTED_MODULE_TYPES = ["page","book"] as const;
 
 /** user-defined types **/
 
 export type AuthStatus = "Failed" | "Success" | "Aborted" | "Pending"
 export type Course = { id: number; name: string; colour: string | null; icon: string | null }
-export type CourseSection = { id: number; course_id: number; name: string }
+export type CourseSection = { id: number; courseId: number; name: string }
 export type CourseSectionWithItems = { section: CourseSection; items: SectionModule[] }
 export type CourseWithSections = { course: Course; sections: CourseSectionWithItems[] }
-export type ModuleContent = { id: number; module_id: number; updated_at: bigint; rank: number; content: string }
-export type SectionModule = { id: number; section_id: number; name: string; updated_at: bigint; module_type: SectionModuleType }
+export type ModuleContent = { id: number; moduleId: number; updatedAt: bigint; rank: number; content: string }
+export type MoodleAuthEvent = AuthStatus
+export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; moduleType: SectionModuleType }
 export type SectionModuleType = "page" | "book" | "forum" | "Unknown"
-export type SyncStatus = "Success" | { Failed: string } | "Pending"
-export type SyncTask = { id: string; name: string; last_sync: bigint; sync_status: SyncStatus; error: string | null }
 
 /** tauri-specta globals **/
 

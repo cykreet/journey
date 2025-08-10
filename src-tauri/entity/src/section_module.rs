@@ -24,7 +24,8 @@ pub enum SectionModuleType {
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Type, Serialize, Deserialize)]
 #[sea_orm(table_name = "section_module")]
-#[specta(rename = "SectionModule")]
+#[specta(rename = "SectionModule", rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct Model {
 	#[sea_orm(primary_key, auto_increment = false)]
 	pub id: i32,
@@ -48,6 +49,12 @@ pub enum Relation {
 		to = "super::module_content::Column::ModuleId"
 	)]
 	ModuleContent,
+	#[sea_orm(
+		has_many = "super::content_blob::Entity",
+		from = "Column::Id",
+		to = "super::content_blob::Column::ModuleId"
+	)]
+	ContentBlob,
 }
 
 impl Related<super::course_section::Entity> for Entity {
@@ -59,6 +66,12 @@ impl Related<super::course_section::Entity> for Entity {
 impl Related<super::module_content::Entity> for Entity {
 	fn to() -> RelationDef {
 		Relation::ModuleContent.def()
+	}
+}
+
+impl Related<super::content_blob::Entity> for Entity {
+	fn to() -> RelationDef {
+		Relation::ContentBlob.def()
 	}
 }
 

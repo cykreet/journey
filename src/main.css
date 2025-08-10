@@ -68,3 +68,46 @@ p {
 		opacity: 100%;
 	}
 }
+
+#module-content {
+	h1,
+	h2,
+	h3 {
+		margin-top: 0.5em;
+		margin-bottom: 0.5em;
+	}
+
+	h1 {
+		font-size: 1.8em;
+		font-weight: 600;
+	}
+
+	h2 {
+		font-size: 1.6em;
+		font-weight: 600;
+	}
+
+	h3 {
+		font-size: 1.4em;
+		font-weight: 600;
+	}
+
+	ul {
+		list-style-type: disc;
+		margin-left: 1.5em;
+	}
+
+	table {
+		border-collapse: collapse;
+		width: 100%;
+	}
+
+	td,
+	th {
+		border: 1px solid var(--color-wood-300);
+		background: none;
+		padding: 8px;
+		text-align: left;
+		vertical-align: top;
+	}
+}

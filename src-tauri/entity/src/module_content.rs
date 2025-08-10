@@ -4,7 +4,8 @@ use specta::Type;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Type, Serialize, Deserialize)]
 #[sea_orm(table_name = "module_content")]
-#[specta(rename = "ModuleContent")]
+#[specta(rename = "ModuleContent", rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct Model {
 	#[sea_orm(primary_key, auto_increment = false)]
 	pub id: i32,
@@ -23,23 +24,11 @@ pub enum Relation {
 		to = "super::section_module::Column::Id"
 	)]
 	SectionModule,
-	#[sea_orm(
-		has_many = "super::content_blob::Entity",
-		from = "Column::Id",
-		to = "super::content_blob::Column::ModuleContentId"
-	)]
-	ContentBlob,
 }
 
 impl Related<super::section_module::Entity> for Entity {
 	fn to() -> RelationDef {
 		Relation::SectionModule.def()
-	}
-}
-
-impl Related<super::content_blob::Entity> for Entity {
-	fn to() -> RelationDef {
-		Relation::ContentBlob.def()
 	}
 }
 

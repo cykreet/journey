@@ -2,9 +2,10 @@ use base64::Engine;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Emitter, Manager, Url, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, Url, WebviewWindowBuilder};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_store::StoreExt;
+use tauri_specta::Event;
 use tokio::sync::Mutex;
 
 pub mod auth_keys {
@@ -43,6 +44,9 @@ struct RestSiteInfo {
 pub struct AuthState {
 	pub auth_status: AuthStatus,
 }
+
+#[derive(Serialize, Deserialize, Type, Debug, Clone, Event)]
+pub struct MoodleAuthEvent(pub AuthStatus);
 
 #[tauri::command]
 #[specta::specta]
@@ -107,7 +111,9 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 				println!("No token found in URL");
 				auth_state.auth_status = AuthStatus::Failed;
 
-				window.emit("moodle_auth", &auth_state.auth_status).unwrap();
+				MoodleAuthEvent(auth_state.auth_status.clone())
+					.emit(&window)
+					.unwrap();
 				window.close().unwrap();
 				return false;
 			}
@@ -119,15 +125,16 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 				println!("Invalid token format");
 				auth_state.auth_status = AuthStatus::Failed;
 
-				window.emit("moodle_auth", &auth_state.auth_status).unwrap();
+				MoodleAuthEvent(auth_state.auth_status.clone())
+					.emit(&window)
+					.unwrap();
 				window.close().unwrap();
 				return false;
 			}
 
-			println!("Token: {}", token_parts[1]);
-
 			let host = host.clone();
 			tauri::async_runtime::block_on(async move {
+				// one time request to get site info, could move this to rest.rs later
 				let site_info_response = reqwest::Client::new()
 					.get(&format!("{}/webservice/rest/server.php", host))
 					.query(&[
@@ -147,7 +154,9 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 						site_info_response.err().unwrap()
 					);
 					auth_state.auth_status = AuthStatus::Failed;
-					window.emit("moodle_auth", &auth_state.auth_status).unwrap();
+					MoodleAuthEvent(auth_state.auth_status.clone())
+						.emit(&window)
+						.unwrap();
 					window.close().unwrap();
 					return false;
 				}
@@ -159,7 +168,9 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 						response_body.err().unwrap()
 					);
 					auth_state.auth_status = AuthStatus::Failed;
-					window.emit("moodle_auth", &auth_state.auth_status).unwrap();
+					MoodleAuthEvent(auth_state.auth_status.clone())
+						.emit(&window)
+						.unwrap();
 					window.close().unwrap();
 					return false;
 				}
@@ -179,7 +190,9 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 				store.set(auth_keys::PASSPORT, passport);
 
 				auth_state.auth_status = AuthStatus::Success;
-				window.emit("moodle_auth", &auth_state.auth_status).unwrap();
+				MoodleAuthEvent(auth_state.auth_status.clone())
+					.emit(&window)
+					.unwrap();
 				window
 					.get_webview_window("main")
 					.unwrap()

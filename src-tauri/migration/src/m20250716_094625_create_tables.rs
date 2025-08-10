@@ -44,7 +44,7 @@ enum ModuleContent {
 enum ContentBlob {
 	Table,
 	Name,
-	ModuleContentId,
+	ModuleId,
 	UpdatedAt,
 	MimeType,
 	Path,
@@ -161,24 +161,20 @@ impl MigrationTrait for Migration {
 					.table(ContentBlob::Table)
 					.if_not_exists()
 					.col(ColumnDef::new(ContentBlob::Name).string().not_null())
-					.col(
-						ColumnDef::new(ContentBlob::ModuleContentId)
-							.integer()
-							.not_null(),
-					)
+					.col(ColumnDef::new(ContentBlob::ModuleId).integer().not_null())
 					.primary_key(
 						Index::create()
 							.col(ContentBlob::Name)
-							.col(ContentBlob::ModuleContentId),
+							.col(ContentBlob::ModuleId),
 					)
 					.col(ColumnDef::new(ContentBlob::UpdatedAt).integer().null())
 					.col(ColumnDef::new(ContentBlob::MimeType).string().not_null())
 					.col(ColumnDef::new(ContentBlob::Path).string().not_null())
 					.foreign_key(
 						ForeignKey::create()
-							.name("fk_content_blob_module_content_id")
-							.from(ContentBlob::Table, ContentBlob::ModuleContentId)
-							.to(ModuleContent::Table, ModuleContent::Id)
+							.name("fk_content_blob_module_id")
+							.from(ContentBlob::Table, ContentBlob::ModuleId)
+							.to(SectionModule::Table, SectionModule::Id)
 							.on_delete(ForeignKeyAction::Cascade),
 					)
 					.to_owned(),
