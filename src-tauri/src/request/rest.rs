@@ -63,8 +63,6 @@ pub struct RestCourseSectionModuleContent {
 	pub content_type: RestCourseSectionModuleContentType,
 	#[serde(rename = "content")]
 	pub content: Option<String>,
-	#[serde(rename = "sortorder")]
-	pub sort_order: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]

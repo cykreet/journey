@@ -1,4 +1,3 @@
-import { info } from "@tauri-apps/plugin-log";
 import { useEffect, useState } from "react";
 import type { Result } from "../bindings";
 
@@ -19,8 +18,6 @@ export const useCommand = <T>(
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
 		const cacheKey = `command-${command.name}-${JSON.stringify(args)}`;
-		// todo: logging not working for some reason
-		info(`using cache key: ${cacheKey}`);
 		const getCachedData = () => {
 			try {
 				const cachedData = localStorage.getItem(cacheKey);

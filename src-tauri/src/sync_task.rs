@@ -25,7 +25,6 @@ pub struct SyncTask<T> {
 				+ 'static,
 		>,
 	>,
-	phantom: std::marker::PhantomData<T>,
 }
 
 impl<T> SyncTask<T>
@@ -37,7 +36,6 @@ where
 			app_handle: app,
 			sync_id: format!("sync_task_{}", sync_id),
 			return_fn: None,
-			phantom: std::marker::PhantomData,
 		}
 	}
 

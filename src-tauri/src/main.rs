@@ -8,6 +8,7 @@ use entity::section_module::Model as CourseSectionItem;
 use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
 use tauri::async_runtime::Mutex;
 use tauri::Manager;
+use tauri_plugin_fs::FsExt;
 use tauri_plugin_store::StoreExt;
 use tauri_specta::{collect_commands, collect_events, Builder, Event};
 
@@ -51,6 +52,8 @@ pub fn main() {
 		.expect("failed to export typescript bindings");
 
 	tauri::Builder::default()
+		.plugin(tauri_plugin_fs::init())
+		.plugin(tauri_plugin_shell::init())
 		.invoke_handler(builder.invoke_handler())
 		.plugin(tauri_plugin_store::Builder::new().build())
 		.plugin(tauri_plugin_http::init())
@@ -74,6 +77,11 @@ pub fn main() {
 		.setup(move |app| {
 			builder.mount_events(app);
 			let handle = app.handle();
+
+			let scope = app.fs_scope();
+			scope
+				.allow_directory(app.path().app_local_data_dir().unwrap(), true)
+				.ok();
 
 			#[cfg(desktop)]
 			handle

@@ -3,6 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MenuSidebar, type MenuSidebarSection } from "./menu-sidebar";
 
 export interface MenuLayoutProps {
+	key: string;
 	header: React.ReactNode;
 	sidebarSections?: MenuSidebarSection[];
 	loading?: boolean;
@@ -10,9 +11,14 @@ export interface MenuLayoutProps {
 	children?: React.ReactNode;
 }
 
-export const MenuLayout = ({ children, header, tocItems, loading, sidebarSections }: MenuLayoutProps) => {
+export const MenuLayout = ({ key, children, header, tocItems, loading, sidebarSections }: MenuLayoutProps) => {
 	return (
-		<PanelGroup className="flex flex-row w-full max-h-svh space-x-20" direction={"horizontal"} autoSaveId="sidebar">
+		<PanelGroup
+			key={key}
+			className="flex flex-row w-full max-h-svh space-x-20"
+			direction={"horizontal"}
+			autoSaveId="sidebar"
+		>
 			<Panel className="m-0" defaultSize={20} minSize={10} maxSize={25}>
 				<MenuSidebar loading={loading} header={header} sections={sidebarSections} />
 			</Panel>

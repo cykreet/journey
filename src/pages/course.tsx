@@ -1,15 +1,18 @@
+import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import prettyMs from "pretty-ms";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
 import { type CourseWithSections, commands } from "../bindings";
 import { MenuLayout } from "../components/layout/menu/menu-layout";
 import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
 import { useCommand } from "../hooks/useCommand";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:id/:page?");
 	const { data: courseData, error, loading } = useCommand(commands.getCourse, Number(params?.id));
+	const [localAppDataDir, setLocalAppDataDir] = useState<string | null>(null);
 
 	if (!match || error) return <div>{error}</div>;
 
@@ -24,24 +27,31 @@ export const Course = () => {
 		};
 	}) as MenuSidebarSection[];
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
-		if (loading === false && params?.page == null) {
+		if (params?.page == null && courseData?.sections[0]?.items[0] && courseData?.course.id === Number(params?.id)) {
 			const lastViewedModule = localStorage.getItem(`lastViewedModule-${params.id}`);
 			if (lastViewedModule == null)
 				return navigate(`/course/${params.id}/${courseData?.sections[0]?.items[0]?.id}`, { replace: true });
 			return navigate(`/course/${params.id}/${lastViewedModule}`, { replace: true });
 		}
-	}, [params.id, params.page, loading]);
+	}, [params.page, courseData, params.id]);
+
+	useEffect(() => {
+		appLocalDataDir().then((dir) => {
+			setLocalAppDataDir(dir);
+		});
+	}, []);
 
 	return (
 		<MenuLayout
+			key={params.id}
 			header={<span className="font-bold">{courseData?.course.name}</span>}
 			sidebarSections={sidebarSections}
 			loading={courseData == null && loading}
 		>
-			{(courseData || loading === false) && (
+			{params.page != null && localAppDataDir && (
 				<CourseModule
+					localAppDataDir={localAppDataDir}
 					courseData={courseData as CourseWithSections}
 					courseId={Number(params.id)}
 					pageId={Number(params.page)}
@@ -52,10 +62,16 @@ export const Course = () => {
 };
 
 export const CourseModule = ({
+	localAppDataDir,
 	courseId,
 	pageId,
-}: { courseData: CourseWithSections; courseId: number; pageId: number }) => {
+}: { localAppDataDir: string; courseData: CourseWithSections; courseId: number; pageId: number }) => {
 	const { data: moduleData, error: contentError, loading } = useCommand(commands.getModuleContent, courseId, pageId);
+	const [contentParsed, setContentParsed] = useState<{ id: number; content: string }[] | undefined>(undefined);
+
+	if (contentError) {
+		return <div className="text-wood-200">No content available for this module.</div>;
+	}
 
 	const [module, moduleContent] = moduleData || [];
 	const lastSyncTime = Date.now() - (typeof module?.updatedAt === "number" ? Number(module.updatedAt) * 1000 : 0);
@@ -66,9 +82,40 @@ export const CourseModule = ({
 	});
 
 	useEffect(() => {
-		if (module == null || moduleContent == null) return;
-		localStorage.setItem(`lastViewedModule-${courseId}`, module.id.toString());
-	}, [module, moduleContent, courseId]);
+		if (moduleData == null || loading) return;
+		localStorage.setItem(`lastViewedModule-${courseId}`, pageId.toString());
+	}, [moduleData, courseId, pageId, loading]);
+
+	useEffect(() => {
+		if (moduleContent == null || localAppDataDir == null) return;
+		const parseContent = async () => {
+			const parsedContent = await Promise.all(
+				moduleContent.map(async (content) => {
+					const contentHtml = await replaceSrcAsync(content.content);
+					return { id: content.id, content: contentHtml };
+				}),
+			);
+			setContentParsed(parsedContent);
+		};
+
+		parseContent();
+	}, [moduleContent, localAppDataDir]);
+
+	const replaceSrcAsync = async (html: string) => {
+		const regex = /src="([^"]+)"/g;
+		const matches = Array.from(html.matchAll(regex));
+		let replacedHtml = html;
+
+		for (const match of matches) {
+			const srcPath = match[1];
+			if (srcPath.startsWith("http://") || srcPath.startsWith("https://") || srcPath.startsWith("data:")) continue;
+			const filePath = await join(localAppDataDir, "content_blobs", pageId.toString(), srcPath);
+			const localPath = convertFileSrc(filePath);
+			replacedHtml = replacedHtml.replace(match[0], `src="${localPath}"`);
+		}
+
+		return replacedHtml;
+	};
 
 	return (
 		<React.Fragment>
@@ -87,7 +134,7 @@ export const CourseModule = ({
 							</span>
 						</div>
 					</div>
-					{moduleContent?.map((content) => (
+					{contentParsed?.map((content) => (
 						<div key={content.id} className="h-full w-full">
 							<div
 								style={{ height: "100%" }}

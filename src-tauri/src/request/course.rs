@@ -229,15 +229,11 @@ pub async fn get_module_content(
 					return Err(format!("Module type {} is not supported", module.module_type).into());
 				}
 
-				let mut module_contents = module.contents.unwrap_or_default();
+				let module_contents = module.contents.unwrap_or_default();
 				let state = app_handle.state::<DatabaseState>();
 				let db = &state.0;
 				let txn = db.begin().await.map_err(|e| e.to_string())?;
 
-				// if we attempt to insert content blobs first, we might run into issues with the content not being present yet,
-				// and thus a foreign key constraint violation, content blobs have a sort order of 0, so if we sort
-				// first we can try to make sure content is inserted first
-				module_contents.sort_by(|a, b| b.sort_order.cmp(&a.sort_order));
 				for (i, content) in module_contents.iter().enumerate() {
 					// ids of the content blocks stored in file path as "/id/"
 					// media content also uses this to refer to the relevant content block.
@@ -251,13 +247,6 @@ pub async fn get_module_content(
 							.map_err(|e| e.to_string())?
 					};
 
-					log::info!(
-						"({}) Processing content: {} (id: {})",
-						module.name,
-						content.file_name,
-						content_id
-					);
-
 					// "books" have an additional structure content object that contains the hierarchy of the contents,
 					// not sure how i wanna handle books, but storing content blocks as they appear in the response is fine for now
 
@@ -270,8 +259,7 @@ pub async fn get_module_content(
 							return Err(format!("Failed to fetch content for content id: {}", content_id).into());
 						}
 
-						// todo: gonna need to somehow run through the content looking for any occurrences of
-						// our stored content blobs, and replace them with the actual file paths
+						// todo: remove any scripts and stylesheets that are not needed
 						let content_text = content_response.text().await.map_err(|e| e.to_string())?;
 						let module_content = entity::module_content::ActiveModel {
 							id: ActiveValue::Set(content_id),
@@ -314,7 +302,7 @@ pub async fn get_module_content(
 
 						let app_dir = app_handle
 							.path()
-							.app_data_dir()
+							.app_local_data_dir()
 							.expect("failed to get app data dir");
 						let path = app_dir
 							.join("content_blobs")
