@@ -60,8 +60,7 @@ jobs:
 
       - name: set version
         run: |
-          echo VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
-          echo MATRIX_ARGS="--config '{\"version\":\"$VERSION\"}' ${{ matrix.args }}" >> $GITHUB_ENV
+          echo MATRIX_ARGS="--config '{\"version\":\"$(echo ${{ github.ref_name }} | sed 's/^v//')\"}' ${{ matrix.args }}" >> $GITHUB_ENV
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -69,7 +68,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: app-v__VERSION__
+          tagName: v__VERSION__
           releaseName: 'Journey v__VERSION__'
           prerelease: false
           args: ${{ env.MATRIX_ARGS }}
