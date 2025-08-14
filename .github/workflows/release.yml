@@ -48,8 +48,8 @@ jobs:
 
       - name: set version
         run: |
-          echo VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
-          echo ARGS="--config '\"version\": \"$VERSION\"' ${{ matrix.args }}"
+          VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
+          echo MATRIX_ARGS="--config '{\"version\":\"$VERSION\"}' ${{ matrix.args }}" >> $GITHUB_ENV
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -58,4 +58,4 @@ jobs:
           tagName: app-v__VERSION__
           releaseName: 'Journey v__VERSION__'
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ env.MATRIX_ARGS }}
