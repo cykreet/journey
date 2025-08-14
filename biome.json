@@ -24,6 +24,9 @@
 				"noDoubleEquals": "off",
 				"noConfusingVoidType": "off",
 				"noAssignInExpressions": "off"
+			},
+			"correctness": {
+				"noUnusedImports": "error"
 			}
 		}
 	},
