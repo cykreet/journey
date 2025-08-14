@@ -36,6 +36,18 @@ jobs:
           # these targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
       - name: install dependencies (ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -48,12 +60,14 @@ jobs:
 
       - name: set version
         run: |
-          VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
+          echo VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
           echo MATRIX_ARGS="--config '{\"version\":\"$VERSION\"}' ${{ matrix.args }}" >> $GITHUB_ENV
 
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: app-v__VERSION__
           releaseName: 'Journey v__VERSION__'
