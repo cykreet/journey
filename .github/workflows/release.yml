@@ -5,6 +5,7 @@ on:
 
 jobs:
   publish-tauri:
+    environment: ${{ contains(github.ref_name, 'beta') && 'beta' || 'stable' }}
     permissions:
       contents: write
     strategy:
@@ -44,6 +45,11 @@ jobs:
       - name: install frontend dependencies
         run: |
           bun install
+
+      - name: set version
+        run: |
+          echo VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
+          echo ARGS="--config '\"version\": \"$VERSION\"' ${{ matrix.args }}"
 
       - uses: tauri-apps/tauri-action@v0
         env:
