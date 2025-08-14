@@ -26,7 +26,7 @@ export const GlobalLayout = ({ children }: { children: React.ReactNode }) => {
 			<Sidebar />
 			<div className="w-full">
 				{(isCourseRoute == false && (
-					<MenuLayout header={"Journey"} sidebarSections={homeMenuItems}>
+					<MenuLayout key="home" header={"Journey"} sidebarSections={homeMenuItems}>
 						<div>{children}</div>
 					</MenuLayout>
 				)) || <div>{children}</div>}
