@@ -85,6 +85,8 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 	let app_handle = app.clone();
 	let window_label = "login";
 	WebviewWindowBuilder::new(&app, window_label, tauri::WebviewUrl::External(login_url))
+		.title("Moodle Login")
+		.center()
 		.on_navigation(move |url| {
 			// once we're navigated to the moodlemobile:// url, we can extract the token
 			// in the form of moodlemobile://token=ws_token

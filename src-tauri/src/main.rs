@@ -1,15 +1,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::process::Command;
+
 use entity::course::Model as Course;
 use entity::course_section::Model as CourseSection;
 use entity::module_content::Model as ModuleContent;
 use entity::section_module::Model as CourseSectionItem;
 
-use specta_typescript::{formatter, BigIntExportBehavior, Typescript};
+use specta_typescript::{BigIntExportBehavior, Typescript};
 use tauri::async_runtime::Mutex;
-use tauri::Manager;
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_store::StoreExt;
+use tauri_plugin_updater::UpdaterExt;
 use tauri_specta::{collect_commands, collect_events, Builder, Event};
 
 use crate::auth::{auth_keys, open_login_window, AuthState, AuthStatus, MoodleAuthEvent};
@@ -18,6 +21,9 @@ use crate::request::course::{
 	SUPPORTED_MODULE_TYPES,
 };
 use crate::sync_task::SyncState;
+
+const MIN_WINDOW_WIDTH: f64 = 300.0;
+const MIN_WINDOW_HEIGHT: f64 = 300.0;
 
 mod auth;
 mod database;
@@ -44,7 +50,12 @@ pub fn main() {
 
 	let ts_exporter = Typescript::new()
 		.bigint(BigIntExportBehavior::BigInt)
-		.formatter(formatter::biome);
+		.formatter(|path| {
+			Command::new("biome")
+				.args(["lint", "--write", path.to_str().unwrap()])
+				.status()
+				.map(|_| ())
+		});
 
 	#[cfg(debug_assertions)]
 	builder
@@ -63,62 +74,124 @@ pub fn main() {
 				.level(log::LevelFilter::Debug)
 				.build(),
 		)
-		// .plugin(tauri_plugin_updater::Builder::new().build())
-		.on_window_event(|window, event| match event {
-			tauri::WindowEvent::CloseRequested { .. } => {
-				let auth_state = window.app_handle().state::<Mutex<AuthState>>();
-				let auth_state = tauri::async_runtime::block_on(auth_state.lock());
-				if window.label() == "login" && auth_state.auth_status == AuthStatus::Pending {
-					MoodleAuthEvent(AuthStatus::Aborted).emit(window).unwrap();
-				}
-			}
-			_ => {}
-		})
+		.plugin(tauri_plugin_updater::Builder::new().build())
 		.setup(move |app| {
 			builder.mount_events(app);
-			let handle = app.handle();
-
+			let app_handle = app.handle().clone();
 			let scope = app.fs_scope();
 			scope
 				.allow_directory(app.path().app_local_data_dir().unwrap(), true)
 				.ok();
 
 			#[cfg(desktop)]
-			handle
+			app_handle
 				.plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
 				.expect("failed to initialise single instance");
+
+			app_handle.manage(Mutex::new(SyncState::default()));
+			app_handle.manage(Mutex::new(AuthState::default()));
 
 			// #[cfg(debug_assertions)]
 			// console_subscriber::init();
 
-			tauri::async_runtime::block_on(async {
-				let database = database::Database::new(&handle)
+			let window_url = match app_handle.store("store.json") {
+				Ok(store) => {
+					if store.has(auth_keys::USER_ID) && store.has(auth_keys::WS_TOKEN) {
+						tauri::WebviewUrl::App("/home".into())
+					} else {
+						tauri::WebviewUrl::App("/".into())
+					}
+				}
+				Err(e) => {
+					log::error!("Failed to open store, forced to setup: {}", e);
+					tauri::WebviewUrl::App("/".into())
+				}
+			};
+
+			let mut win_builder = tauri::WebviewWindowBuilder::new(&app_handle, "main", window_url)
+				.title("journey")
+				.resizable(true)
+				.fullscreen(false)
+				.center()
+				.inner_size(1200.0, 600.0)
+				.min_inner_size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
+
+			#[cfg(target_os = "macos")]
+			{
+				use tauri::TitleBarStyle;
+				win_builder = win_builder
+					.hidden_title(true)
+					.title_bar_style(TitleBarStyle::Overlay);
+			}
+			#[cfg(not(target_os = "macos"))]
+			{
+				win_builder = win_builder.decorations(false);
+			}
+
+			win_builder.build().unwrap();
+			tauri::async_runtime::block_on(async move {
+				let database = database::Database::new(&app_handle)
 					.await
 					.expect("failed to connect to database");
-				handle.manage(database::DatabaseState(database.connection));
-				handle.manage(Mutex::new(SyncState::default()));
-				handle.manage(Mutex::new(AuthState::default()));
-
-				// initial setup checks should not actually validate the session,
-				// just check if we've been authenticated before.
-				let store = handle.store("store.json");
-				if store.is_err() {
-					log::error!("Failed to open store.json, forced to setup");
-					return;
-				}
-
-				let store = store.unwrap();
-				if let Some(window) = handle.get_webview_window("main") {
-					if store.has(auth_keys::USER_ID) == false || store.has(auth_keys::WS_TOKEN) == false {
-						return;
-					}
-
-					window.eval("window.location.replace('/home');").unwrap();
-				}
+				app_handle.manage(database::DatabaseState(database.connection));
 			});
 
 			Ok(())
 		})
-		.run(tauri::generate_context!())
-		.expect("error while running tauri application");
+		.build(tauri::generate_context!())
+		.expect("error while running tauri application")
+		.run(|app_handle, event| match event {
+			RunEvent::WindowEvent {
+				event: WindowEvent::Focused(true),
+				..
+			} => {
+				let handle = app_handle.clone();
+				tauri::async_runtime::spawn(async move {
+					update(handle).await.expect("failed to update application");
+				});
+			}
+			RunEvent::WindowEvent {
+				event: WindowEvent::CloseRequested { .. },
+				label,
+				..
+			} => {
+				if label == "login" {
+					let window = app_handle.get_webview_window(&label).unwrap();
+					let auth_state = app_handle.state::<Mutex<AuthState>>();
+					let mut auth_state = tauri::async_runtime::block_on(auth_state.lock());
+					if auth_state.auth_status == AuthStatus::Pending {
+						auth_state.auth_status = AuthStatus::Aborted;
+						MoodleAuthEvent(auth_state.auth_status.clone())
+							.emit(&window)
+							.unwrap();
+					}
+				}
+			}
+			_ => {}
+		})
+}
+
+async fn update(app: AppHandle) -> tauri_plugin_updater::Result<()> {
+	let update = app.updater()?.check().await?;
+	if update.is_none() {
+		log::info!("No updates available");
+		return Ok(());
+	}
+
+	let update = update.unwrap();
+	let mut downloaded = 0;
+	update
+		.download_and_install(
+			|chunk_length, content_length| {
+				downloaded += chunk_length;
+				log::info!("Downloaded {downloaded} from {content_length:?}");
+			},
+			|| {
+				log::info!("Update downloaded, restarting application");
+			},
+		)
+		.await?;
+
+	log::info!("Update downloaded, restarting application");
+	app.restart()
 }

@@ -59,6 +59,7 @@ jobs:
           bun install
 
       - name: set version
+        shell: bash
         run: |
           echo MATRIX_ARGS="--config '{\"version\":\"$(echo ${{ github.ref_name }} | sed 's/^v//')\"}' ${{ matrix.args }}" >> $GITHUB_ENV
 

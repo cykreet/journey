@@ -288,6 +288,8 @@ pub async fn get_module_content(
 					}
 
 					if let Some(mime_type) = &content.mime_type {
+						// todo: either check time modified on module or make HEAD request to check "last-modified" header
+						// to avoid downloading the same file again if it hasn't changed
 						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
 						let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
 						if content_response.status().is_success() == false {

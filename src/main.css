@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@font-face {
+	font-family: "Archivo";
+	src: url("/fonts/Archivo.ttf");
+}
 
 @theme {
 	--color-ivory: #fde4d3;
@@ -14,6 +18,10 @@
 	--color-goo: #c8f113;
 }
 
+*[data-tauri-drag-region] {
+	app-region: drag;
+}
+
 :root {
 	/* font-family: Inter, Avenir, Helvetica, Arial, sans-serif; */
 	font-size: 16px;
@@ -22,6 +30,12 @@
 
 	--color-text: var(--color-ivory);
 	--color-background: var(--color-wood);
+}
+
+html,
+body,
+#root {
+	@apply w-full h-full overflow-hidden;
 }
 
 body {
@@ -75,6 +89,12 @@ p {
 		text-decoration: none;
 	}
 
+	img {
+		margin: 0 auto;
+		max-height: 500px;
+		border-radius: 8px;
+	}
+
 	h1,
 	h2,
 	h3 {
@@ -114,5 +134,10 @@ p {
 		padding: 8px;
 		text-align: left;
 		vertical-align: top;
+	}
+
+	hr {
+		border-top: 1px solid var(--color-wood-300);
+		margin: 1em 0;
 	}
 }

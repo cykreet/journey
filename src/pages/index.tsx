@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import IconJourney from "~icons/journey/journey";
 import { type AuthStatus as AuthStatusPayload, commands, events } from "../bindings";
 import { Button } from "../components/button";
@@ -66,7 +66,7 @@ export const Index = () => {
 	};
 
 	return (
-		<React.Fragment>
+		<>
 			{showDialog && (
 				<Dialog open={showDialog}>
 					{authStatus === AuthStatus.Success && <DialogBodySuccess message="Successfully authenticated." />}
@@ -121,6 +121,6 @@ export const Index = () => {
 					</div>
 				</div>
 			</div>
-		</React.Fragment>
+		</>
 	);
 };

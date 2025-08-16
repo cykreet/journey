@@ -1,6 +1,6 @@
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import prettyMs from "pretty-ms";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
 import { type CourseWithSections, commands } from "../bindings";
@@ -11,10 +11,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:id/:page?");
-	const { data: courseData, error, loading } = useCommand(commands.getCourse, Number(params?.id));
+	const { data: courseData, error: _error, loading } = useCommand(commands.getCourse, Number(params?.id));
 	const [localAppDataDir, setLocalAppDataDir] = useState<string | null>(null);
 
-	if (!match || error) return <div>{error}</div>;
+	if (!match || params.id == null) navigate("/home", { replace: true });
+	if (params?.id == null) throw new Error("course id not found in params");
 
 	const sidebarSections = courseData?.sections?.map((section) => {
 		return {
@@ -69,10 +70,6 @@ export const CourseModule = ({
 	const { data: moduleData, error: contentError, loading } = useCommand(commands.getModuleContent, courseId, pageId);
 	const [contentParsed, setContentParsed] = useState<{ id: number; content: string }[] | undefined>(undefined);
 
-	if (contentError) {
-		return <div className="text-wood-200">No content available for this module.</div>;
-	}
-
 	const [module, moduleContent] = moduleData || [];
 	const lastSyncTime = Date.now() - (typeof module?.updatedAt === "number" ? Number(module.updatedAt) * 1000 : 0);
 	const prettySyncTime = prettyMs(lastSyncTime, {
@@ -95,10 +92,15 @@ export const CourseModule = ({
 					return { id: content.id, content: contentHtml };
 				}),
 			);
+
 			setContentParsed(parsedContent);
 		};
 
 		parseContent();
+
+		return () => {
+			setContentParsed(undefined);
+		};
 	}, [moduleContent, localAppDataDir]);
 
 	const replaceSrcAsync = async (html: string) => {
@@ -117,35 +119,36 @@ export const CourseModule = ({
 		return replacedHtml;
 	};
 
+	const statusColour = loading ? "bg-wood-100" : contentError ? "bg-rose-500" : "bg-goo";
+
 	return (
-		<React.Fragment>
-			{(contentError && (
+		<div className="mb-4 w-full">
+			<div className="flex flex-col text-wood-100 mb-10 bg-wood-700 rounded border border-ivory/10 p-2">
+				<span className="font-bold">{module?.name}</span>
+				<div className="flex flex-row space-x-2 items-center">
+					<div className={`${statusColour} rounded-full w-1.5 h-1.5 ${loading ? "animate-pulse" : ""}`} />
+					<span className="text-sm text-wood-200">
+						{loading || contentError
+							? "..."
+							: `Last synced ${lastSyncTime > 60 * 1000 ? `${prettySyncTime} ago` : "just now"}`}
+					</span>
+				</div>
+			</div>
+			{(moduleData == null && contentError && (
 				<div className="mb-4">
 					<span className="font-bold">Error loading module content:</span> {contentError}
 				</div>
-			)) || (
-				<React.Fragment>
-					<div className="flex flex-col text-wood-100 mb-4 bg-wood-700 rounded border border-ivory/10 p-2">
-						<span className="font-bold">{module?.name}</span>
-						<div className="flex flex-row space-x-2 items-center">
-							<div className={`bg-goo rounded-full w-1.5 h-1.5 ${loading ? "animate-pulse" : ""}`} />
-							<span className="text-sm text-wood-200">
-								{loading ? "..." : `Last synced ${lastSyncTime > 60 * 1000 ? `${prettySyncTime} ago` : "just now"}`}
-							</span>
-						</div>
+			)) ||
+				contentParsed?.map((content) => (
+					<div key={content.id} className="h-full w-full">
+						<div
+							style={{ height: "100%" }}
+							id="module-content"
+							/* biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation> */
+							dangerouslySetInnerHTML={{ __html: content.content }}
+						/>
 					</div>
-					{contentParsed?.map((content) => (
-						<div key={content.id} className="h-full w-full">
-							<div
-								style={{ height: "100%" }}
-								id="module-content"
-								/* biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation> */
-								dangerouslySetInnerHTML={{ __html: content.content }}
-							/>
-						</div>
-					))}
-				</React.Fragment>
-			)}
-		</React.Fragment>
+				))}
+		</div>
 	);
 };

@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import type { ForwardRefExoticComponent, ReactNode, SVGProps } from "react";
-import React from "react";
 
 export const SidebarItem = ({
 	icon,
@@ -23,10 +22,10 @@ export const SidebarItem = ({
 	return (
 		<div className={classNames} style={{ width: loading ? `${Math.floor(Math.random() * 100)}%` : "auto" }}>
 			{!loading && (
-				<React.Fragment>
+				<>
 					{Icon && <Icon />}
 					{children}
-				</React.Fragment>
+				</>
 			)}
 		</div>
 	);
