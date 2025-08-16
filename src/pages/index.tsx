@@ -73,15 +73,15 @@ export const Index = () => {
 					{authStatus === AuthStatus.Failed && <DialogBodyFailed message="Failed to authenticate." />}
 				</Dialog>
 			)}
-			<div className="flex flex-col justify-center items-center h-screen space-y-4 bg-wood-700">
-				<div className="flex flex-row mx-auto max-w-1/2 container space-x-10 items-center">
-					<IconJourney className="w-34 h-34" />
-					<div className="flex flex-col space-y-2">
-						<div className="flex flex-row space-x-2">
+			<div className="flex flex-col justify-center items-center w-full space-y-6">
+				<div className="flex flex-row space-x-10 items-center justify-center">
+					<IconJourney className="w-30 h-30 text-goo" />
+					<div className="flex flex-col space-y-2 w-min">
+						<div className="flex flex-row space-x-2 w-fit">
 							<h1>Journey</h1>
 							<div className="text-sm border border-ivory/10 rounded-md p-1 text-wood-100">v{version}</div>
 						</div>
-						<span className="w-3/4">
+						<span className="w-60">
 							Get started by authenticating with your Moodle instance.
 							<a
 								className="text-sm ml-0.5 text-wood-100 align-top"
@@ -95,7 +95,7 @@ export const Index = () => {
 						</span>
 					</div>
 				</div>
-				<div className="flex flex-col w-full max-w-1/3">
+				<div className="flex flex-col w-full max-w-1/4">
 					<span className="text-sm text-wood-100">Enter the host of your Moodle instance here.</span>
 					<div className="flex flex-row space-x-2 w-full items-center">
 						<Input
@@ -115,7 +115,7 @@ export const Index = () => {
 							onEnter={openLoginWindow}
 							placeholder="https://moodle.example.com"
 						/>
-						<Button onClick={openLoginWindow} loading={loading} disabled={!host[0]}>
+						<Button onClick={openLoginWindow} loading={loading} disabled={!host[0]} className="px-4">
 							<IconArrowRight className="w-6 h-6" />
 						</Button>
 					</div>

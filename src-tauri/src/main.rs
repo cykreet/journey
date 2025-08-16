@@ -5,7 +5,7 @@ use std::process::Command;
 use entity::course::Model as Course;
 use entity::course_section::Model as CourseSection;
 use entity::module_content::Model as ModuleContent;
-use entity::section_module::Model as CourseSectionItem;
+use entity::section_module::{Model as CourseSectionItem, SectionModuleType};
 
 use specta_typescript::{BigIntExportBehavior, Typescript};
 use tauri::async_runtime::Mutex;
@@ -46,7 +46,8 @@ pub fn main() {
 		.typ::<ModuleContent>()
 		.typ::<CourseWithSections>()
 		.typ::<CourseSectionWithItems>()
-		.typ::<AuthStatus>();
+		.typ::<AuthStatus>()
+		.typ::<SectionModuleType>();
 
 	let ts_exporter = Typescript::new()
 		.bigint(BigIntExportBehavior::BigInt)

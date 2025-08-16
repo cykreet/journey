@@ -30,8 +30,16 @@ pub struct CourseSectionWithItems {
 	pub items: Vec<entity::section_module::Model>,
 }
 
-pub const SUPPORTED_MODULE_TYPES: [SectionModuleType; 2] =
-	[SectionModuleType::Page, SectionModuleType::Book];
+// we filter for these when revalidating and fetching course data
+pub const SUPPORTED_MODULE_TYPES: [SectionModuleType; 4] = [
+	SectionModuleType::Page,
+	SectionModuleType::Book,
+	SectionModuleType::Resource,
+	SectionModuleType::Url,
+];
+
+// supported mime types relevant to actual module content and not embedded content like images
+pub const SUPPORTED_MIME_TYPES: [&str; 2] = ["application/pdf", "text/html"];
 
 #[tauri::command]
 #[specta::specta]
@@ -90,7 +98,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 				.map_err(|e| e.to_string())?;
 
 				let response = client.execute(request).await.unwrap();
-				if response.status().is_success() == false {
+				if response.status().is_success().not() {
 					return Err(format!("Failed to fetch course sections with id: {course_id}").into());
 				}
 
@@ -189,6 +197,9 @@ pub async fn get_module_content(
 					return Err(format!("Module with id {} not found", module_id).into());
 				}
 
+				// todo: if module is resource, get content blob for resource to return
+				// and check if supported mime type, etc.
+
 				Ok(module_with_content[0].clone())
 			})
 		})
@@ -208,7 +219,7 @@ pub async fn get_module_content(
 				.map_err(|e| e.to_string())?;
 
 				let response = client.execute(request).await.unwrap();
-				if response.status().is_success() == false {
+				if response.status().is_success().not() {
 					return Err(format!("Failed to fetch module content with id: {module_id}").into());
 				}
 
@@ -225,7 +236,7 @@ pub async fn get_module_content(
 					.find(|module| module.id == module_id)
 					.ok_or_else(|| format!("Module with id {} not found", module_id))?;
 
-				if !SUPPORTED_MODULE_TYPES.contains(&module.module_type) {
+				if SUPPORTED_MODULE_TYPES.contains(&module.module_type).not() {
 					return Err(format!("Module type {} is not supported", module.module_type).into());
 				}
 
@@ -255,11 +266,12 @@ pub async fn get_module_content(
 					if content.file_name == "index.html" {
 						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
 						let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
-						if content_response.status().is_success() == false {
+						if content_response.status().is_success().not() {
 							return Err(format!("Failed to fetch content for content id: {}", content_id).into());
 						}
 
 						// todo: remove any scripts and stylesheets that are not needed
+						// html content is usually also pretty ugly with empty tags, etc.
 						let content_text = content_response.text().await.map_err(|e| e.to_string())?;
 						let module_content = entity::module_content::ActiveModel {
 							id: ActiveValue::Set(content_id),
@@ -288,11 +300,15 @@ pub async fn get_module_content(
 					}
 
 					if let Some(mime_type) = &content.mime_type {
+						if SUPPORTED_MIME_TYPES.contains(&mime_type.as_str()).not() {
+							continue;
+						}
+
 						// todo: either check time modified on module or make HEAD request to check "last-modified" header
 						// to avoid downloading the same file again if it hasn't changed
 						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
 						let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
-						if content_response.status().is_success() == false {
+						if content_response.status().is_success().not() {
 							return Err(
 								format!(
 									"Failed to fetch content blob for content id: {}",
@@ -340,6 +356,35 @@ pub async fn get_module_content(
 							.exec(&txn)
 							.await
 							.map_err(|e| e.to_string())?;
+
+						// modules with the resource type usually (from what i've seen) only consist of a single content blob (pdf)
+						// and so we set the module content to the content blob path
+						if module.module_type == SectionModuleType::Resource {
+							let module_content = entity::module_content::ActiveModel {
+								id: ActiveValue::Set(content_id),
+								module_id: ActiveValue::Set(module_id),
+								content: ActiveValue::Set(content.file_name.to_string()),
+								rank: ActiveValue::Set(i as i32),
+								updated_at: ActiveValue::Set(Utc::now().timestamp()),
+							};
+
+							entity::ModuleContent::insert(module_content)
+								.on_conflict(
+									sea_query::OnConflict::columns([
+										entity::module_content::Column::Id,
+										entity::module_content::Column::ModuleId,
+									])
+									.update_columns([
+										entity::module_content::Column::Content,
+										entity::module_content::Column::Rank,
+										entity::module_content::Column::UpdatedAt,
+									])
+									.to_owned(),
+								)
+								.exec(&txn)
+								.await
+								.map_err(|e| e.to_string())?;
+						}
 					}
 				}
 
@@ -408,7 +453,7 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<entity::course::Mode
 					.map_err(|e| e.to_string())?;
 
 					let response = client.execute(request).await.unwrap();
-					if response.status().is_success() == false {
+					if response.status().is_success().not() {
 						return Err(
 							format!(
 								"Could not get user courses: {}",

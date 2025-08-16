@@ -24,7 +24,7 @@ export const MenuSidebar = ({ sections, loading, header }: MenuSidebarProps) => 
 	const [location] = useLocation();
 
 	return (
-		<aside className="flex bg-wood-700 border-r border-ivory/10 select-none flex-col space-y-4 h-full min-w-full overflow-hidden">
+		<aside className="flex bg-wood-700 border-r border-ivory/10 select-none flex-col h-full min-w-full overflow-hidden">
 			<div className="border-b w-full border-ivory/10 min-h-12 content-center">
 				<div className="p-2 font-bold">{header}</div>
 			</div>
@@ -46,18 +46,17 @@ export const MenuSidebar = ({ sections, loading, header }: MenuSidebarProps) => 
 							<>
 								{/* // biome-ignore lint/correctness/useJsxKeyInIterable: <explanation> */}
 								<span className="text-xs text-ivory/60">{section.name}</span>
-								{section.subItems?.map((item) => {
-									return (
-										// biome-ignore lint/correctness/useJsxKeyInIterable: <explanation>
-										<div className="flex flex-col space-y-1">
+								<div className="flex flex-col space-y-1">
+									{section.subItems?.map((item) => {
+										return (
 											<Link href={item.href} key={item.name}>
 												<SidebarItem icon={item.icon} active={location === item.href}>
 													{item.name}
 												</SidebarItem>
 											</Link>
-										</div>
-									);
-								})}
+										);
+									})}
+								</div>
 							</>
 						);
 					})}

@@ -13,7 +13,7 @@ export const Sidebar = () => {
 		<div className="flex flex-col px-3 py-2 bg-wood-700 h-full">
 			<div className="flex flex-col space-y-3 overflow-y-auto h-full hide-scroll">
 				<Link href="/home" className="mb-0">
-					<IconJourney className="mx-auto w-7 h-7" />
+					<IconJourney className="mx-auto w-7 h-7 text-goo" />
 				</Link>
 				<hr className="border-ivory/10 my-3" />
 				{courses.data?.map((course) => (

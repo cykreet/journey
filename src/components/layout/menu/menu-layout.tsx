@@ -7,20 +7,13 @@ export interface MenuLayoutProps {
 	sidebarSections?: MenuSidebarSection[];
 	loading?: boolean;
 	children?: React.ReactNode;
-	collapseSidebar?: boolean;
 }
 
-export const MenuLayout = ({
-	key,
-	children,
-	header,
-	loading,
-	sidebarSections,
-	collapseSidebar = false,
-}: MenuLayoutProps) => {
+export const MenuLayout = ({ key, children, header, loading, sidebarSections }: MenuLayoutProps) => {
 	return (
 		<PanelGroup key={key} className="flex flex-row w-full h-full" direction={"horizontal"} autoSaveId="sidebar">
-			{collapseSidebar == false && (
+			{/* todo: replace with sidebar state */}
+			{true && (
 				<>
 					<Panel className="m-0 h-full w-full" defaultSize={20} minSize={20} maxSize={30} order={1}>
 						<MenuSidebar loading={loading} header={header} sections={sidebarSections} />
@@ -29,10 +22,8 @@ export const MenuLayout = ({
 				</>
 			)}
 			<Panel className="m-0 h-full" order={2}>
-				<div className="container mx-auto overflow-y-auto h-full w-full">
-					<div className="flex flex-row h-full w-full">
-						<div className="flex flex-col space-y-8 mt-10 w-full mx-20">{children}</div>
-					</div>
+				<div className="flex container mx-auto overflow-y-auto h-full w-full">
+					<div className="flex flex-col mt-10 w-full mx-20">{children}</div>
 				</div>
 			</Panel>
 		</PanelGroup>

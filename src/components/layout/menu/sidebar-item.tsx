@@ -14,7 +14,7 @@ export const SidebarItem = ({
 }) => {
 	const Icon = icon;
 	const classNames = clsx(
-		"w-full hover:bg-ivory/8 py-1 flex px-3 flex-inline text-wood-100 text-sm items-center gap-2 select-none rounded-md cursor-pointer text-ellipsis overflow-hidden whitespace-nowrap",
+		"w-full hover:bg-ivory/8 py-1.5 flex px-3 flex-inline text-wood-100 text-sm items-center gap-2 select-none rounded-md cursor-pointer text-ellipsis overflow-hidden whitespace-nowrap",
 		active && "bg-ivory/10 text-tan!",
 		loading && "animate-pulse h-6 bg-ivory/10",
 	);

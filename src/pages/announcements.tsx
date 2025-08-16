@@ -1,7 +1,7 @@
 export const Announcements = () => {
 	return (
 		<div>
-			<span>now this is announcements</span>
+			<span>soon</span>
 		</div>
 	);
 };

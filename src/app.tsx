@@ -5,28 +5,31 @@ import { Course } from "./pages/course";
 import { GlobalLayout } from "./components/layout/global-layout";
 import { Announcements } from "./pages/announcements";
 import { Index } from "./pages";
+import { WindowControls } from "./components/layout/window-controls";
 
 export function App() {
 	return (
-		<Switch>
-			<Route path="/">
-				<Index />
-			</Route>
-			<GlobalLayout>
-				<Route path="/home">
-					<Home />
+		<WindowControls>
+			<Switch>
+				<Route path="/">
+					<Index />
 				</Route>
-				<Route path="/announcements">
-					<Announcements />
+				<GlobalLayout>
+					<Route path="/home">
+						<Home />
+					</Route>
+					<Route path="/announcements">
+						<Announcements />
+					</Route>
+					<Route path="/course/:id?/:page?">
+						<Course />
+					</Route>
+				</GlobalLayout>
+				<Route>
+					<p>404 not found</p>
 				</Route>
-				<Route path="/course/:id?/:page?">
-					<Course />
-				</Route>
-			</GlobalLayout>
-			<Route>
-				<p>404 not found</p>
-			</Route>
-		</Switch>
+			</Switch>
+		</WindowControls>
 	);
 }
 

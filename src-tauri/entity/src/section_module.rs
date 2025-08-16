@@ -17,6 +17,12 @@ pub enum SectionModuleType {
 	#[serde(rename = "forum")]
 	#[sea_orm(num_value = 2)]
 	Forum,
+	#[serde(rename = "resource")]
+	#[sea_orm(num_value = 3)]
+	Resource,
+	#[serde(rename = "url")]
+	#[sea_orm(num_value = 4)]
+	Url,
 	#[serde(other)]
 	#[sea_orm(num_value = -1)]
 	Unknown,

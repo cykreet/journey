@@ -50,7 +50,7 @@ moodleAuthEvent: "moodle-auth-event"
 
 /** user-defined constants **/
 
-export const SUPPORTED_MODULE_TYPES = ["page","book"] as const;
+export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
 
 /** user-defined types **/
 
@@ -62,7 +62,7 @@ export type CourseWithSections = { course: Course; sections: CourseSectionWithIt
 export type ModuleContent = { id: number; moduleId: number; updatedAt: bigint; rank: number; content: string }
 export type MoodleAuthEvent = AuthStatus
 export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; moduleType: SectionModuleType }
-export type SectionModuleType = "page" | "book" | "forum" | "Unknown"
+export type SectionModuleType = "page" | "book" | "forum" | "resource" | "Unknown"
 
 /** tauri-specta globals **/
 
