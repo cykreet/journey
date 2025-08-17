@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { SidebarItem } from "./sidebar-item";
 import type { ForwardRefExoticComponent, ReactNode, SVGProps } from "react";
+import IconInfo from "~icons/tabler/info-circle-filled";
 
 export interface MenuSidebarSection {
 	id?: number;
@@ -18,9 +19,10 @@ export interface MenuSidebarProps {
 	header: ReactNode;
 	loading?: boolean;
 	sections?: MenuSidebarSection[];
+	sidebarNotice?: string;
 }
 
-export const MenuSidebar = ({ sections, loading, header }: MenuSidebarProps) => {
+export const MenuSidebar = ({ sections, loading, header, sidebarNotice: notice }: MenuSidebarProps) => {
 	const [location] = useLocation();
 
 	return (
@@ -31,6 +33,7 @@ export const MenuSidebar = ({ sections, loading, header }: MenuSidebarProps) => 
 			<div className="flex flex-col space-y-3 p-2 overflow-y-scroll h-full min-w-full">
 				{(loading && (
 					<div className="flex flex-col space-y-2">
+						{/* todo: move to skeleton components */}
 						<SidebarItem loading />
 						<SidebarItem loading />
 						<SidebarItem loading />
@@ -40,14 +43,19 @@ export const MenuSidebar = ({ sections, loading, header }: MenuSidebarProps) => 
 						<SidebarItem loading />
 						<SidebarItem loading />
 					</div>
-				)) ||
-					sections?.map((section) => {
-						return (
-							<>
-								{/* // biome-ignore lint/correctness/useJsxKeyInIterable: <explanation> */}
-								<span className="text-xs text-ivory/60">{section.name}</span>
-								<div className="flex flex-col space-y-1">
-									{section.subItems?.map((item) => {
+				)) || (
+					<>
+						{notice && (
+							<span className="text-xs text-wood-100/50 flex mb-4">
+								<IconInfo className="inline-block mr-1" />
+								{notice}
+							</span>
+						)}
+						{sections?.map((section) => {
+							return (
+								<div key={section.id} className="flex flex-col space-y-1">
+									<span className="text-xs text-ivory/60">{section.name}</span>
+									{section.subItems.map((item) => {
 										return (
 											<Link href={item.href} key={item.name}>
 												<SidebarItem icon={item.icon} active={location === item.href}>
@@ -57,9 +65,10 @@ export const MenuSidebar = ({ sections, loading, header }: MenuSidebarProps) => 
 										);
 									})}
 								</div>
-							</>
-						);
-					})}
+							);
+						})}
+					</>
+				)}
 			</div>
 		</aside>
 	);

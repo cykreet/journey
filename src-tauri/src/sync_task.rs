@@ -89,9 +89,9 @@ where
 					.insert(self.sync_id.to_string(), json!(now));
 			}
 			Err(e) => {
-				sync_state
-					.tasks
-					.insert(self.sync_id.to_string(), json!(now + SYNC_TIMEOUT / 2));
+				// sync_state
+				// 	.tasks
+				// 	.insert(self.sync_id.to_string(), json!(now + SYNC_TIMEOUT / 2));
 				return Err(e.into());
 			}
 		};

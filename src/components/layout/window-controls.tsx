@@ -6,17 +6,18 @@ import IconSquare from "~icons/tabler/square";
 import IconSquares from "~icons/tabler/squares";
 import IconX from "~icons/tabler/x";
 import { Button, ButtonStyle } from "../button";
+import { SidebarContext } from "./sidebar-context";
 
 export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 	const [maximised, setMaximised] = useState(false);
-	const [collapseSidebar, setCollapseSidebar] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
 	return (
 		<div className="w-full h-full flex flex-col">
 			<div data-tauri-drag-region className="bg-wood-700 justify-between flex flex-row">
 				<div className="py-1 ml-2">
 					<Button
-						onClick={() => setCollapseSidebar(!collapseSidebar)}
+						onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
 						buttonStyle={ButtonStyle.GHOST}
 						className="text-wood-100"
 					>
@@ -56,7 +57,9 @@ export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 					</Button>
 				</div>
 			</div>
-			<div className="flex flex-row max-h-full overflow-hidden w-full h-full">{children}</div>
+			<div className="flex flex-row max-h-full overflow-hidden w-full h-full">
+				<SidebarContext.Provider value={sidebarCollapsed}>{children}</SidebarContext.Provider>
+			</div>
 		</div>
 	);
 };

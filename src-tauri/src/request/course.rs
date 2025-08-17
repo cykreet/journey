@@ -1,6 +1,8 @@
 use std::{ops::Not, vec};
 
 use entity::section_module::SectionModuleType;
+use futures::StreamExt;
+use migration::Expr;
 use sea_orm::{
 	sea_query, ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait,
 };
@@ -11,6 +13,12 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_store::StoreExt;
 
+use entity::content_blob::Model as ContentBlob;
+use entity::course::Model as Course;
+use entity::course_section::Model as CourseSection;
+use entity::module_content::Model as ModuleContent;
+use entity::section_module::Model as SectionModule;
+
 use crate::{
 	auth::auth_keys,
 	database::DatabaseState,
@@ -20,14 +28,14 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Type)]
 pub struct CourseWithSections {
-	pub course: entity::course::Model,
-	pub sections: Vec<CourseSectionWithItems>,
+	pub course: Course,
+	pub sections: Vec<CourseSectionWithModules>,
 }
 
 #[derive(Serialize, Deserialize, Type)]
-pub struct CourseSectionWithItems {
-	pub section: entity::course_section::Model,
-	pub items: Vec<entity::section_module::Model>,
+pub struct CourseSectionWithModules {
+	pub section: CourseSection,
+	pub modules: Vec<SectionModule>,
 }
 
 // we filter for these when revalidating and fetching course data
@@ -39,7 +47,7 @@ pub const SUPPORTED_MODULE_TYPES: [SectionModuleType; 4] = [
 ];
 
 // supported mime types relevant to actual module content and not embedded content like images
-pub const SUPPORTED_MIME_TYPES: [&str; 2] = ["application/pdf", "text/html"];
+pub const SUPPORTED_EMBED_TYPES: [&str; 1] = ["application/pdf"];
 
 #[tauri::command]
 #[specta::specta]
@@ -59,7 +67,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 
 				let mut sections_with_items = vec![];
 				for section in sections {
-					let items = entity::SectionModule::find()
+					let modules = entity::SectionModule::find()
 						.filter(
 							Condition::all()
 								.add(entity::section_module::Column::SectionId.eq(section.id))
@@ -69,8 +77,37 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 						.await
 						.map_err(|e| e.to_string())?;
 
-					if items.is_empty().not() {
-						sections_with_items.push((section, items));
+					let supported_modules = futures::stream::iter(modules)
+						// filter resource modules based on the content blob mime type
+						.filter_map(|module| {
+							let db = db.clone();
+							async move {
+								if module.module_type != SectionModuleType::Resource {
+									return Some(module);
+								}
+
+								let content_blob = entity::ContentBlob::find()
+									.filter(entity::content_blob::Column::ModuleId.eq(module.id))
+									.one(&db)
+									.await
+									.ok()?;
+
+								if content_blob.is_none()
+									|| SUPPORTED_EMBED_TYPES
+										.contains(&content_blob.as_ref()?.mime_type.as_str())
+										.not()
+								{
+									return None;
+								}
+
+								Some(module)
+							}
+						})
+						.collect::<Vec<_>>()
+						.await;
+
+					if supported_modules.is_empty().not() {
+						sections_with_items.push((section, supported_modules));
 					}
 				}
 
@@ -78,7 +115,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 					course: course,
 					sections: sections_with_items
 						.into_iter()
-						.map(|(section, items)| CourseSectionWithItems { section, items })
+						.map(|(section, modules)| CourseSectionWithModules { section, modules })
 						.collect(),
 				})
 			})
@@ -113,10 +150,28 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 				let db = &state.0;
 				let txn = db.begin().await.map_err(|e| e.to_string())?;
 
+				entity::Course::update_many()
+					// module_count helps us keep track of the number of modules in this course
+					// so we can be more transparent about any that are omitted when we wanna display them
+					.col_expr(
+						entity::course::Column::ModuleCount,
+						Expr::value(
+							sections_data
+								.iter()
+								.map(|section| section.modules.len() as i32)
+								.sum::<i32>(),
+						),
+					)
+					.filter(entity::course::Column::Id.eq(course_id))
+					.exec(&txn)
+					.await
+					.map_err(|e| e.to_string())?;
+
 				for section in sections_data {
 					let section_entity = entity::course_section::ActiveModel {
 						id: ActiveValue::Set(section.id),
 						name: ActiveValue::Set(section.name.clone()),
+						// todo: parse html encoded names: &amp;
 						course_id: ActiveValue::Set(course_id),
 					};
 
@@ -176,13 +231,7 @@ pub async fn get_module_content(
 	app: AppHandle,
 	course_id: i32,
 	module_id: i32,
-) -> Result<
-	(
-		entity::section_module::Model,
-		Vec<entity::module_content::Model>,
-	),
-	String,
-> {
+) -> Result<(SectionModule, Vec<ModuleContent>), String> {
 	SyncTask::new(app, format!("get_module_content_{}", module_id))
 		.return_state(move |state| {
 			let db = state.0.clone();
@@ -196,9 +245,6 @@ pub async fn get_module_content(
 				if module_with_content.is_empty() {
 					return Err(format!("Module with id {} not found", module_id).into());
 				}
-
-				// todo: if module is resource, get content blob for resource to return
-				// and check if supported mime type, etc.
 
 				Ok(module_with_content[0].clone())
 			})
@@ -300,10 +346,6 @@ pub async fn get_module_content(
 					}
 
 					if let Some(mime_type) = &content.mime_type {
-						if SUPPORTED_MIME_TYPES.contains(&mime_type.as_str()).not() {
-							continue;
-						}
-
 						// todo: either check time modified on module or make HEAD request to check "last-modified" header
 						// to avoid downloading the same file again if it hasn't changed
 						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
@@ -359,7 +401,9 @@ pub async fn get_module_content(
 
 						// modules with the resource type usually (from what i've seen) only consist of a single content blob (pdf)
 						// and so we set the module content to the content blob path
-						if module.module_type == SectionModuleType::Resource {
+						if module.module_type == SectionModuleType::Resource
+							&& SUPPORTED_EMBED_TYPES.contains(&mime_type.as_str())
+						{
 							let module_content = entity::module_content::ActiveModel {
 								id: ActiveValue::Set(content_id),
 								module_id: ActiveValue::Set(module_id),
@@ -420,7 +464,39 @@ pub async fn get_module_content(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_user_courses(app: AppHandle) -> Result<Vec<entity::course::Model>, String> {
+pub async fn get_content_blobs(
+	app: AppHandle,
+	course_id: i32,
+	module_id: i32,
+) -> Result<Vec<ContentBlob>, String> {
+	SyncTask::new(
+		app,
+		format!("get_content_blobs_{}_{}", course_id, module_id),
+	)
+	.return_state(move |state| {
+		let db = state.0.clone();
+		Box::pin(async move {
+			let blobs = entity::ContentBlob::find()
+				.filter(Condition::all().add(entity::content_blob::Column::ModuleId.eq(module_id)))
+				.all(&db)
+				.await
+				.map_err(|e| e.to_string())?;
+
+			if blobs.is_empty() {
+				return Err(format!("No content blobs found for module id: {}", module_id).into());
+			}
+
+			Ok(blobs)
+		})
+	})
+	.sync_state(|_| Box::pin(async { Ok(()) }))
+	.await
+	.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 	SyncTask::new(app, "get_user_courses".to_string())
 		.return_state(move |state| {
 			let db = state.0.clone();
@@ -476,6 +552,7 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<entity::course::Mode
 							id: ActiveValue::Set(course.id),
 							name: ActiveValue::Set(course.full_name),
 							colour: ActiveValue::Set(Some("brown".to_string())),
+							module_count: ActiveValue::Set(0),
 							icon: ActiveValue::Set(None),
 						})
 						.collect::<Vec<_>>();
@@ -492,6 +569,7 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<entity::course::Mode
 										entity::course::Column::Name,
 										entity::course::Column::Colour,
 										entity::course::Column::Icon,
+										// don't update module count here
 									])
 									.to_owned(),
 							)

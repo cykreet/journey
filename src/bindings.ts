@@ -36,6 +36,14 @@ async getModuleContent(courseId: number, moduleId: number) : Promise<Result<[Sec
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getContentBlobs(courseId: number, moduleId: number) : Promise<Result<ContentBlob[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_content_blobs", { courseId, moduleId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -50,19 +58,21 @@ moodleAuthEvent: "moodle-auth-event"
 
 /** user-defined constants **/
 
-export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
+export const SUPPORTED_EMBED_TYPES = ["application/pdf"] as const;
+export const SUPPORTED_MODULE_TYPES = ["page","book","resource","url"] as const;
 
 /** user-defined types **/
 
 export type AuthStatus = "Failed" | "Success" | "Aborted" | "Pending"
-export type Course = { id: number; name: string; colour: string | null; icon: string | null }
+export type ContentBlob = { name: string; moduleId: number; updatedAt: bigint; mimeType: string; path: string }
+export type Course = { id: number; name: string; moduleCount: number; colour: string | null; icon: string | null }
 export type CourseSection = { id: number; courseId: number; name: string }
-export type CourseSectionWithItems = { section: CourseSection; items: SectionModule[] }
-export type CourseWithSections = { course: Course; sections: CourseSectionWithItems[] }
+export type CourseSectionWithModules = { section: CourseSection; modules: SectionModule[] }
+export type CourseWithSections = { course: Course; sections: CourseSectionWithModules[] }
 export type ModuleContent = { id: number; moduleId: number; updatedAt: bigint; rank: number; content: string }
 export type MoodleAuthEvent = AuthStatus
 export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; moduleType: SectionModuleType }
-export type SectionModuleType = "page" | "book" | "forum" | "resource" | "Unknown"
+export type SectionModuleType = "page" | "book" | "forum" | "resource" | "url" | "Unknown"
 
 /** tauri-specta globals **/
 

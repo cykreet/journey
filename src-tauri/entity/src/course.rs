@@ -10,6 +10,7 @@ pub struct Model {
 	#[sea_orm(primary_key, auto_increment = false)]
 	pub id: i32,
 	pub name: String,
+	pub module_count: i32,
 	pub colour: Option<String>,
 	pub icon: Option<String>,
 }

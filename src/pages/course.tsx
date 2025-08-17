@@ -1,63 +1,81 @@
-import { join } from "@tauri-apps/api/path";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import prettyMs from "pretty-ms";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
-import { type CourseWithSections, type ModuleContent, type SectionModule, commands } from "../bindings";
+import {
+	type ContentBlob,
+	type CourseWithSections,
+	type ModuleContent,
+	type SectionModule,
+	commands,
+} from "../bindings";
 import { MenuLayout } from "../components/layout/menu/menu-layout";
 import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
 import { useCommand } from "../hooks/useCommand";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { SectionModuleType } from "../types";
-import { useLocalAppDataDir } from "../hooks/useLocalAppDataDir";
 
 export const Course = () => {
-	const [match, params] = useRoute("/course/:id/:page?");
-	const { data: courseData, error: _error, loading } = useCommand(commands.getCourse, Number(params?.id));
+	const [match, params] = useRoute("/course/:courseId/:moduleId?");
+	const { data: courseData, error: _error, loading } = useCommand(commands.getCourse, Number(params?.courseId));
 
-	if (!match || params.id == null) navigate("/home", { replace: true });
-	if (params?.id == null) throw new Error("course id not found in params");
+	if (!match || params.courseId == null) navigate("/home", { replace: true });
+	if (params?.courseId == null) throw new Error("course id not found in params");
 
+	console.log("module count", courseData?.course.moduleCount);
+	let moduleOmitCount = courseData?.course.moduleCount ?? 0;
 	const sidebarSections = courseData?.sections?.map((section) => {
+		moduleOmitCount -= section.modules.length;
+		console.log("subtracting from module omit count", section.modules.length, "now", moduleOmitCount);
+
 		return {
 			id: section.section.id,
 			name: section.section.name,
-			subItems: section.items.map((item) => ({
-				name: item.name,
-				href: `/course/${params?.id}/${item.id}`,
+			subItems: section.modules.map((courseModule) => ({
+				name: courseModule.name,
+				href: `/course/${params?.courseId}/${courseModule.id}`,
 			})),
 		};
 	}) as MenuSidebarSection[];
 
 	useEffect(() => {
-		if (params?.page == null && courseData?.sections[0]?.items[0] && courseData?.course.id === Number(params?.id)) {
-			const lastViewedModule = localStorage.getItem(`lastViewedModule-${params.id}`);
+		if (
+			params?.moduleId == null &&
+			courseData?.sections[0]?.modules[0] &&
+			courseData?.course.id === Number(params?.courseId)
+		) {
+			const lastViewedModule = localStorage.getItem(`lastViewedModule-${params.courseId}`);
 			if (lastViewedModule == null)
-				return navigate(`/course/${params.id}/${courseData?.sections[0]?.items[0]?.id}`, { replace: true });
-			return navigate(`/course/${params.id}/${lastViewedModule}`, { replace: true });
+				return navigate(`/course/${params.courseId}/${courseData?.sections[0]?.modules[0]?.id}`, { replace: true });
+			return navigate(`/course/${params.courseId}/${lastViewedModule}`, { replace: true });
 		}
-	}, [params.page, courseData, params.id]);
+	}, [params.moduleId, courseData, params.courseId]);
 
 	return (
 		<MenuLayout
-			key={params.id}
+			key={params.courseId}
 			header={<span className="font-bold">{courseData?.course.name}</span>}
 			sidebarSections={sidebarSections}
 			loading={courseData == null && loading}
+			sidebarNotice={moduleOmitCount > 0 ? `Omitted ${moduleOmitCount} unsupported modules` : undefined}
 		>
-			{params.page != null && (
+			{params.moduleId != null && (
 				<CourseModule
+					key={params.moduleId}
 					courseData={courseData as CourseWithSections}
-					courseId={Number(params.id)}
-					pageId={Number(params.page)}
+					courseId={Number(params.courseId)}
+					moduleId={Number(params.moduleId)}
 				/>
 			)}
 		</MenuLayout>
 	);
 };
 
-const CourseModule = ({ courseId, pageId }: { courseData: CourseWithSections; courseId: number; pageId: number }) => {
-	const { data, error, loading } = useCommand(commands.getModuleContent, courseId, pageId);
+const CourseModule = ({
+	courseId,
+	moduleId,
+}: { courseData: CourseWithSections; courseId: number; moduleId: number }) => {
+	const { data, error, loading } = useCommand(commands.getModuleContent, courseId, moduleId);
 
 	const statusColour = loading ? "bg-wood-100" : error ? "bg-rose-500" : "bg-goo";
 	const [moduleData, moduleContent] = data || [];
@@ -71,8 +89,8 @@ const CourseModule = ({ courseId, pageId }: { courseData: CourseWithSections; co
 
 	useEffect(() => {
 		if (data == null || loading) return;
-		localStorage.setItem(`lastViewedModule-${courseId}`, pageId.toString());
-	}, [data, courseId, pageId, loading]);
+		localStorage.setItem(`lastViewedModule-${courseId}`, moduleId.toString());
+	}, [data, courseId, moduleId, loading]);
 
 	return (
 		<div className="mb-4 w-full">
@@ -87,63 +105,49 @@ const CourseModule = ({ courseId, pageId }: { courseData: CourseWithSections; co
 					</span>
 				</div>
 			</div>
-			{((data == null || error) && (
+			{(error && (
 				<div className="mb-4">
 					<span className="font-bold">Error loading module content:</span> {error}
 				</div>
-			)) || <ModuleContentBlock pageId={pageId} moduleData={moduleData!} moduleContent={moduleContent} />}
+			)) ||
+				(data && <ModuleContentBlock courseId={courseId} moduleData={moduleData!} moduleContent={moduleContent} />)}
 		</div>
 	);
 };
 
 const ModuleContentBlock = ({
-	pageId,
+	courseId,
 	moduleData,
 	moduleContent,
-}: { pageId: number; moduleData: SectionModule; moduleContent?: ModuleContent[] }) => {
+}: { courseId: number; moduleData: SectionModule; moduleContent?: ModuleContent[] }) => {
+	const { data: contentBlobs } = useCommand(commands.getContentBlobs, courseId, moduleData.id);
+
 	if (moduleContent == null || moduleContent.length === 0) {
 		// todo: replace with prettier errors
 		return <div className="text-wood-100">No content available for this module.</div>;
 	}
 
 	if (moduleData.moduleType === SectionModuleType.Resource) {
-		return <ResourceContentBlock pageId={pageId} moduleData={moduleData} moduleContent={moduleContent} />;
+		return <ResourceContentBlock moduleData={moduleData} contentBlobs={contentBlobs} />;
 	}
 
 	if (moduleData.moduleType === SectionModuleType.Page || moduleData.moduleType === SectionModuleType.Book) {
-		return <PageContentBlock pageId={pageId} moduleContent={moduleContent} />;
+		return <PageContentBlock moduleContent={moduleContent} contentBlobs={contentBlobs} />;
 	}
-
-	return <> </>;
 };
 
 const ResourceContentBlock = ({
-	pageId,
+	contentBlobs,
 	moduleData,
-	moduleContent,
-}: { pageId: number; moduleData: SectionModule; moduleContent: ModuleContent[] }) => {
-	const localAppDataDir = useLocalAppDataDir();
-	const [filePath, setFilePath] = useState<string | null>(null);
-	const resourceBlock = moduleContent[0];
-	const extension = resourceBlock.content.substring(resourceBlock.content.lastIndexOf(".") + 1);
+}: { contentBlobs?: ContentBlob[]; moduleData: SectionModule }) => {
+	const contentBlob = contentBlobs?.[0];
+	const localPath = convertFileSrc(contentBlob?.path ?? "");
 
-	useEffect(() => {
-		// resource content should just be set to a file path
-		join(localAppDataDir, "content_blobs", pageId.toString(), resourceBlock.content).then((path) => {
-			const localPath = convertFileSrc(path);
-			setFilePath(localPath);
-		});
-
-		return () => {
-			setFilePath(null);
-		};
-	}, [pageId, resourceBlock, localAppDataDir]);
-
-	if (extension === "pdf") {
+	if (contentBlob?.mimeType === "application/pdf") {
 		return (
 			<div>
 				<object
-					data={filePath}
+					data={localPath}
 					type="application/pdf"
 					aria-label={moduleData.name}
 					className="w-full h-screen object-contain outline-none"
@@ -153,56 +157,58 @@ const ResourceContentBlock = ({
 	}
 };
 
-const PageContentBlock = ({ moduleContent, pageId }: { moduleContent: ModuleContent[]; pageId: number }) => {
-	const localAppDataDir = useLocalAppDataDir();
-	const [contentBlocks, setContentBlocks] = useState<{ id: number; content: string }[] | undefined>(undefined);
+const PageContentBlock = memo(
+	({ moduleContent, contentBlobs }: { moduleContent: ModuleContent[]; contentBlobs?: ContentBlob[] }) => {
+		const [contentBlocks, setContentBlocks] = useState<{ id: number; content: string }[] | undefined>(undefined);
 
-	useEffect(() => {
-		const parseContent = async () => {
-			const parsedContent = await Promise.all(
-				moduleContent.map(async (content) => {
+		useEffect(() => {
+			// todo: parsed src strings are not used when loading for some reason
+			const parseContent = async () => {
+				const parsedContent = moduleContent.map((content) => {
 					// todo: compile latex expressions using something like katex
-					const contentHtml = await replaceSrcAsync(content.content);
+					const contentHtml = replaceSrc(content.content);
 					return { id: content.id, content: contentHtml };
-				}),
-			);
+				});
 
-			setContentBlocks(parsedContent);
+				setContentBlocks(parsedContent);
+			};
+
+			parseContent();
+
+			return () => {
+				setContentBlocks(undefined);
+			};
+		}, [moduleContent]);
+
+		const replaceSrc = (html: string) => {
+			const regex = /src="([^"]+)"/g;
+			const matches = Array.from(html.matchAll(regex));
+			let replacedHtml = html;
+
+			for (const match of matches) {
+				const srcPath = match[1];
+				if (srcPath.startsWith("http://") || srcPath.startsWith("https://") || srcPath.startsWith("data:")) continue;
+				const filePath = contentBlobs?.find((blob) => decodeURI(srcPath).includes(blob.name))?.path;
+				if (filePath == null) continue;
+
+				const localPath = convertFileSrc(filePath);
+				replacedHtml = replacedHtml.replace(match[0], `src="${localPath}"`);
+			}
+
+			return replacedHtml;
 		};
 
-		parseContent();
-
-		return () => {
-			setContentBlocks(undefined);
-		};
-	}, [moduleContent]);
-
-	const replaceSrcAsync = async (html: string) => {
-		const regex = /src="([^"]+)"/g;
-		const matches = Array.from(html.matchAll(regex));
-		let replacedHtml = html;
-
-		for (const match of matches) {
-			const srcPath = match[1];
-			if (srcPath.startsWith("http://") || srcPath.startsWith("https://") || srcPath.startsWith("data:")) continue;
-			const filePath = await join(localAppDataDir, "content_blobs", pageId.toString(), srcPath);
-			const localPath = convertFileSrc(filePath);
-			replacedHtml = replacedHtml.replace(match[0], `src="${localPath}"`);
-		}
-
-		return replacedHtml;
-	};
-
-	return (
-		<div className="w-full h-full" id="module-content">
-			{contentBlocks?.map((block) => (
-				<div
-					className="w-full h-full"
-					key={block.id}
-					/* biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation> */
-					dangerouslySetInnerHTML={{ __html: block.content }}
-				/>
-			))}
-		</div>
-	);
-};
+		return (
+			<div className="w-full h-full" id="module-content">
+				{contentBlocks?.map((block) => (
+					<div
+						className="w-full h-full"
+						key={block.id}
+						/* biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation> */
+						dangerouslySetInnerHTML={{ __html: block.content }}
+					/>
+				))}
+			</div>
+		);
+	},
+);

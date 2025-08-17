@@ -59,20 +59,20 @@ p {
 	margin-bottom: 1em;
 }
 
-&::-webkit-scrollbar,
-&::-webkit-scrollbar-corner {
+::-webkit-scrollbar,
+::-webkit-scrollbar-corner {
 	@apply w-[8px] h-[8px] bg-transparent;
 }
 
-&::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
 	@apply bg-transparent;
 }
 
-&::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
 	@apply bg-wood-100 rounded-[4px] opacity-20;
 }
 
-&::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
 	@apply opacity-40;
 }
 
@@ -116,13 +116,6 @@ p {
 		border-radius: 8px;
 	}
 
-	h1,
-	h2,
-	h3,
-	h4 {
-		margin-top: 0.5em;
-	}
-
 	h1 {
 		font-size: 1.8em;
 		font-weight: 600;
@@ -143,10 +136,6 @@ p {
 		font-weight: 600;
 	}
 
-	p {
-		margin-top: 0.5em;
-	}
-
 	ul {
 		list-style-type: disc;
 		margin-left: 1.5em;
@@ -163,14 +152,6 @@ p {
 
 	tr {
 		background: none !important;
-	}
-
-	pre {
-		width: 100%;
-		background-color: var(--color-wood-700);
-		color: var(--color-ivory);
-		padding: 2px 4px;
-		border-radius: 4px;
 	}
 
 	td,

@@ -8,6 +8,7 @@ enum Course {
 	Table,
 	Id,
 	Name,
+	ModuleCount,
 	Colour,
 	Icon,
 }
@@ -65,6 +66,7 @@ impl MigrationTrait for Migration {
 							.primary_key(),
 					)
 					.col(ColumnDef::new(Course::Name).string().not_null())
+					.col(ColumnDef::new(Course::ModuleCount).integer().not_null())
 					.col(ColumnDef::new(Course::Colour).string().null())
 					.col(ColumnDef::new(Course::Icon).string().null())
 					.to_owned(),
