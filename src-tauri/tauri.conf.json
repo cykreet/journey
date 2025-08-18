@@ -20,6 +20,12 @@
 		}
 	},
 	"bundle": {
+		"publisher": "cykreet",
+		"license": "MIT",
+		"copyright": "cykreet",
+		"homepage": "https://github.com/cykreet/journey",
+		"longDescription": "Modern desktop client for Moodle course content, prioritises quick access to material and local control.",
+		"shortDescription": "Modern desktop client for Moodle course content",
 		"active": true,
 		"targets": ["app", "appimage", "deb", "dmg", "nsis", "rpm"],
 		"createUpdaterArtifacts": true,
