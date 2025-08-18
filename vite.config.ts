@@ -1,14 +1,27 @@
-import { defineConfig } from "vite";
-import { FileSystemIconLoader } from "unplugin-icons/loaders";
-import react from "@vitejs/plugin-react";
+import { createRequire } from "node:module";
+import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { FileSystemIconLoader } from "unplugin-icons/loaders";
 import Icons from "unplugin-icons/vite";
+import { defineConfig, normalizePath } from "vite";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const host = process.env.TAURI_DEV_HOST;
+
+const require = createRequire(import.meta.url);
+const resolvePath = (p: string, name: string) => normalizePath(path.join(path.dirname(require.resolve(p)), name));
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
 	plugins: [
+		viteStaticCopy({
+			targets: [
+				{ src: resolvePath("pdfjs-dist/package.json", "cmaps"), dest: "" },
+				{ src: resolvePath("pdfjs-dist/package.json", "standard_fonts"), dest: "" },
+				{ src: resolvePath("pdfjs-dist/package.json", "wasm"), dest: "" },
+			],
+		}),
 		Icons({
 			compiler: "jsx",
 			jsx: "react",

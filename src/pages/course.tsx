@@ -1,7 +1,9 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import prettyMs from "pretty-ms";
 import { useCallback, useEffect, useState } from "react";
-import { Document, Page } from "react-pdf";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
 import {
@@ -15,8 +17,8 @@ import { MenuLayout } from "../components/layout/menu/menu-layout";
 import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
 import { useCommand } from "../hooks/useCommand";
 import { SectionModuleType } from "../types";
-import "react-pdf/dist/Page/TextLayer.css";
-import "react-pdf/dist/Page/AnnotationLayer.css";
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:courseId/:moduleId?");

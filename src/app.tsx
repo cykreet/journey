@@ -6,9 +6,6 @@ import { GlobalLayout } from "./components/layout/global-layout";
 import { Announcements } from "./pages/announcements";
 import { Index } from "./pages";
 import { WindowControls } from "./components/layout/window-controls";
-import { pdfjs } from "react-pdf";
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 export function App() {
 	return (
