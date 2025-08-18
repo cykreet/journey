@@ -14,6 +14,8 @@ import { MenuLayout } from "../components/layout/menu/menu-layout";
 import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
 import { useCommand } from "../hooks/useCommand";
 import { SectionModuleType } from "../types";
+// import { usePdf } from "@mikecousins/react-pdf";
+import PDF from "react-pdf-js-infinite";
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:courseId/:moduleId?");
@@ -136,24 +138,15 @@ const ModuleContentBlock = ({
 
 const ResourceContentBlock = ({
 	contentBlobs,
-	moduleData,
+	// moduleData,
 }: { contentBlobs?: ContentBlob[]; moduleData: SectionModule }) => {
-	if (contentBlobs == null || contentBlobs[0] == null) {
-		return <div className="text-wood-100">No resources available for this module.</div>;
-	}
-
-	const contentBlob = contentBlobs[0];
-	const localPath = convertFileSrc(contentBlob.path);
+	const contentBlob = contentBlobs?.[0];
+	const localPath = convertFileSrc(contentBlob?.path ?? "");
 
 	if (contentBlob?.mimeType === "application/pdf") {
 		return (
-			<div>
-				<object
-					data={localPath}
-					type="application/pdf"
-					aria-label={moduleData.name}
-					className="w-full h-screen object-contain outline-none"
-				/>
+			<div className="w-full max-h-200 mb-20 h-full overflow-y-scroll border-1 border-ivory/10 rounded-lg">
+				<PDF rotate={180} file={localPath} className="mx-auto" />
 			</div>
 		);
 	}
