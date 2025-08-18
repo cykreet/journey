@@ -10,16 +10,35 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 const host = process.env.TAURI_DEV_HOST;
 
 const require = createRequire(import.meta.url);
-const resolvePath = (p: string, name: string) => normalizePath(path.join(path.dirname(require.resolve(p)), name));
+const pdfjsDistPath = path.dirname(require.resolve("pdfjs-dist/package.json"));
+const pdfWorkerPath = path.join(pdfjsDistPath, "build", "pdf.worker.mjs");
+const cMapsDir = normalizePath(path.join(pdfjsDistPath, "cmaps"));
+const standardFontsDir = normalizePath(
+	path.join(path.dirname(require.resolve("pdfjs-dist/package.json")), "standard_fonts"),
+);
+const wasmDir = normalizePath(path.join(pdfjsDistPath, "wasm"));
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
 	plugins: [
 		viteStaticCopy({
 			targets: [
-				{ src: resolvePath("pdfjs-dist/package.json", "cmaps"), dest: "" },
-				{ src: resolvePath("pdfjs-dist/package.json", "standard_fonts"), dest: "" },
-				{ src: resolvePath("pdfjs-dist/package.json", "wasm"), dest: "" },
+				{
+					src: pdfWorkerPath,
+					dest: "",
+				},
+				{
+					src: cMapsDir,
+					dest: "",
+				},
+				{
+					src: wasmDir,
+					dest: "",
+				},
+				{
+					src: standardFontsDir,
+					dest: "",
+				},
 			],
 		}),
 		Icons({

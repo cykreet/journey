@@ -19,6 +19,11 @@ import { useCommand } from "../hooks/useCommand";
 import { SectionModuleType } from "../types";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+const pdfOptions = {
+	wasmUrl: "/wasm/",
+	cMapUrl: "/cmaps/",
+	standardFontDataUrl: "/standard_fonts/",
+};
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:courseId/:moduleId?");
@@ -154,11 +159,12 @@ const ResourceContentBlock = ({
 			<div className="w-full max-h-screen flex flex-col mb-20 h-full overflow-y-scroll border-1 border-ivory/10 rounded-lg">
 				<Document
 					file={localPath}
+					options={pdfOptions}
 					onLoadSuccess={({ numPages }) => setPageCount(numPages)}
 					className="mx-auto w-1/2 items-center justify-center flex flex-col space-y-4"
 				>
 					{[...Array(pageCount).keys()].map((index) => (
-						<Page key={index + 1} pageNumber={index + 1} />
+						<Page key={index + 1} pageNumber={index + 1} width={800} className="max-w-2" />
 					))}
 				</Document>
 			</div>

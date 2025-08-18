@@ -58,8 +58,8 @@ moodleAuthEvent: "moodle-auth-event"
 
 /** user-defined constants **/
 
-export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
 export const SUPPORTED_RESOURCE_TYPES = ["application/pdf"] as const;
+export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
 
 /** user-defined types **/
 
