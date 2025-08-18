@@ -29,6 +29,7 @@ enum SectionModule {
 	Name,
 	UpdatedAt,
 	ModuleType,
+	MimeTypes,
 }
 
 #[derive(DeriveIden)]
@@ -120,6 +121,7 @@ impl MigrationTrait for Migration {
 							.integer()
 							.not_null(),
 					)
+					.col(ColumnDef::new(SectionModule::MimeTypes).text().null())
 					.foreign_key(
 						ForeignKey::create()
 							.name("fk_course_section_item_section_id")

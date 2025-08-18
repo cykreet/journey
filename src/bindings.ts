@@ -58,8 +58,8 @@ moodleAuthEvent: "moodle-auth-event"
 
 /** user-defined constants **/
 
-export const SUPPORTED_EMBED_TYPES = ["application/pdf"] as const;
-export const SUPPORTED_MODULE_TYPES = ["page","book","resource","url"] as const;
+export const SUPPORTED_RESOURCE_TYPES = ["application/pdf"] as const;
+export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
 
 /** user-defined types **/
 
@@ -71,7 +71,7 @@ export type CourseSectionWithModules = { section: CourseSection; modules: Sectio
 export type CourseWithSections = { course: Course; sections: CourseSectionWithModules[] }
 export type ModuleContent = { id: number; moduleId: number; updatedAt: bigint; rank: number; content: string }
 export type MoodleAuthEvent = AuthStatus
-export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; moduleType: SectionModuleType }
+export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; mimeTypes?: string[]; moduleType: SectionModuleType }
 export type SectionModuleType = "page" | "book" | "forum" | "resource" | "url" | "Unknown"
 
 /** tauri-specta globals **/

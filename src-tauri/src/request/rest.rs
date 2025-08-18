@@ -17,16 +17,6 @@ pub struct RestCourseSection {
 	pub modules: Vec<RestCourseSectionModule>,
 }
 
-// #[derive(Debug, Deserialize, PartialEq)]
-// pub enum RestCourseSectionModuleType {
-// 	#[serde(rename = "page")]
-// 	Page,
-// 	#[serde(rename = "book")]
-// 	Book,
-// 	#[serde(rename = "forum")]
-// 	Forum,
-// }
-
 #[derive(Debug, Deserialize)]
 pub struct RestCourseSectionModule {
 	pub id: i32,
@@ -35,6 +25,8 @@ pub struct RestCourseSectionModule {
 	#[serde(rename = "modname")]
 	pub module_type: SectionModuleType,
 	pub contents: Option<Vec<RestCourseSectionModuleContent>>,
+	#[serde(rename = "contentsinfo")]
+	pub contents_info: Option<RestCourseSectionModuleContentInfo>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -63,6 +55,14 @@ pub struct RestCourseSectionModuleContent {
 	pub content_type: RestCourseSectionModuleContentType,
 	#[serde(rename = "content")]
 	pub content: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RestCourseSectionModuleContentInfo {
+	#[serde(rename = "filescount")]
+	pub files_count: u32,
+	#[serde(rename = "mimetypes")]
+	pub mime_types: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]

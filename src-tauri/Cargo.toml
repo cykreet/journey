@@ -45,7 +45,7 @@ serde_urlencoded = "0.7.1"
 log = "0.4.27"
 tauri-plugin-shell = "2"
 tauri-plugin-fs = "2"
-futures = "0.3.31"
+html-escape = { version = "0.2.13", default-features = false }
 
 # [target.'cfg(debug_assertions)'.dependencies]
 # tracing = "0.1.41"

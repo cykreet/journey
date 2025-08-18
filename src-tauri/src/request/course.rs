@@ -1,7 +1,6 @@
 use std::{ops::Not, vec};
 
 use entity::section_module::SectionModuleType;
-use futures::StreamExt;
 use migration::Expr;
 use sea_orm::{
 	ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait, sea_query,
@@ -39,15 +38,14 @@ pub struct CourseSectionWithModules {
 }
 
 // we filter for these when revalidating and fetching course data
-pub const SUPPORTED_MODULE_TYPES: [SectionModuleType; 4] = [
+pub const SUPPORTED_MODULE_TYPES: [SectionModuleType; 3] = [
 	SectionModuleType::Page,
 	SectionModuleType::Book,
 	SectionModuleType::Resource,
-	SectionModuleType::Url,
 ];
 
 // supported mime types relevant to actual module content and not embedded content like images
-pub const SUPPORTED_EMBED_TYPES: [&str; 1] = ["application/pdf"];
+pub const SUPPORTED_RESOURCE_TYPES: [&str; 1] = ["application/pdf"];
 
 #[tauri::command]
 #[specta::specta]
@@ -77,34 +75,20 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 						.await
 						.map_err(|e| e.to_string())?;
 
-					let supported_modules = futures::stream::iter(modules)
-						// filter resource modules based on the content blob mime type
-						.filter_map(|module| {
-							let db = db.clone();
-							async move {
-								if module.module_type != SectionModuleType::Resource {
-									return Some(module);
-								}
-
-								let content_blob = entity::ContentBlob::find()
-									.filter(entity::content_blob::Column::ModuleId.eq(module.id))
-									.one(&db)
-									.await
-									.ok()?;
-
-								if content_blob.is_none()
-									|| SUPPORTED_EMBED_TYPES
-										.contains(&content_blob.as_ref()?.mime_type.as_str())
-										.not()
-								{
-									return None;
-								}
-
-								Some(module)
+					let supported_modules = modules
+						.into_iter()
+						.filter(|module| {
+							if module.module_type == SectionModuleType::Resource {
+								let mime_types: Vec<String> =
+									serde_json::from_value(module.mime_types.clone().unwrap_or_default())
+										.unwrap_or_default();
+								return SUPPORTED_RESOURCE_TYPES
+									.contains(&mime_types.first().unwrap_or(&"".to_string()).as_str());
 							}
+
+							true
 						})
-						.collect::<Vec<_>>()
-						.await;
+						.collect::<Vec<_>>();
 
 					if supported_modules.is_empty().not() {
 						sections_with_items.push((section, supported_modules));
@@ -170,8 +154,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 				for section in sections_data {
 					let section_entity = entity::course_section::ActiveModel {
 						id: ActiveValue::Set(section.id),
-						name: ActiveValue::Set(section.name.clone()),
-						// todo: parse html encoded names: &amp;
+						name: ActiveValue::Set(html_escape::decode_html_entities(&section.name).to_string()),
 						course_id: ActiveValue::Set(course_id),
 					};
 
@@ -198,6 +181,12 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 							name: ActiveValue::Set(module.name.clone()),
 							section_id: ActiveValue::Set(section.id),
 							module_type: ActiveValue::Set(module.module_type),
+							mime_types: match module.contents_info {
+								Some(contents_info) => ActiveValue::Set(Some(
+									serde_json::to_value(contents_info.mime_types).map_err(|e| e.to_string())?,
+								)),
+								None => ActiveValue::NotSet,
+							},
 							updated_at: ActiveValue::Set(Utc::now().timestamp()),
 						};
 
@@ -355,7 +344,7 @@ pub async fn get_module_content(
 							.one(&txn)
 							.await
 							.map_err(|e| e.to_string())?;
-						// check time modified on module to avoid downloading the same file again if it hasn't changed
+						// check time modified on content to avoid downloading the same file again if it hasn't changed
 						if let Some(blob) = existing_blob
 							&& content.time_modified as i64 > blob.updated_at
 						{
@@ -422,7 +411,7 @@ pub async fn get_module_content(
 						// modules with the resource type usually (from what i've seen) only consist of a single content blob (pdf)
 						// and so we set the module content to the content blob path
 						if module.module_type == SectionModuleType::Resource
-							&& SUPPORTED_EMBED_TYPES.contains(&mime_type.as_str())
+							&& SUPPORTED_RESOURCE_TYPES.contains(&mime_type.as_str())
 						{
 							let module_content = entity::module_content::ActiveModel {
 								id: ActiveValue::Set(content_id),

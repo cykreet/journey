@@ -38,6 +38,10 @@ pub struct Model {
 	pub section_id: i32,
 	pub name: String,
 	pub updated_at: i64,
+	#[sea_orm(column_type = "Text", nullable)]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	#[specta(type = Vec<String>)]
+	pub mime_types: Option<serde_json::Value>,
 	pub module_type: SectionModuleType,
 }
 

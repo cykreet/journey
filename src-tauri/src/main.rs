@@ -17,7 +17,7 @@ use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
 use crate::auth::{AuthState, AuthStatus, MoodleAuthEvent, auth_keys, open_login_window};
 use crate::request::course::{
-	CourseSectionWithModules, CourseWithSections, SUPPORTED_EMBED_TYPES, SUPPORTED_MODULE_TYPES,
+	CourseSectionWithModules, CourseWithSections, SUPPORTED_MODULE_TYPES, SUPPORTED_RESOURCE_TYPES,
 	get_content_blobs, get_course, get_module_content, get_user_courses,
 };
 use crate::sync_task::SyncState;
@@ -33,7 +33,7 @@ mod sync_task;
 pub fn main() {
 	let builder = Builder::<tauri::Wry>::new()
 		.constant("SUPPORTED_MODULE_TYPES", SUPPORTED_MODULE_TYPES)
-		.constant("SUPPORTED_EMBED_TYPES", SUPPORTED_EMBED_TYPES)
+		.constant("SUPPORTED_RESOURCE_TYPES", SUPPORTED_RESOURCE_TYPES)
 		.commands(collect_commands![
 			open_login_window,
 			get_user_courses,
