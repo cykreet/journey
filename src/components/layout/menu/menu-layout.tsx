@@ -22,7 +22,7 @@ export const MenuLayout = ({ key, children, header, loading, sidebarSections, si
 					<Panel className="m-0 h-full w-full" defaultSize={20} minSize={20} maxSize={30} order={1}>
 						<MenuSidebar loading={loading} header={header} sections={sidebarSections} sidebarNotice={sidebarNotice} />
 					</Panel>
-					<PanelResizeHandle />
+					<PanelResizeHandle className="cursor-ew-resize" />
 				</>
 			)}
 			<Panel className="m-0 h-full flex-1" order={2}>

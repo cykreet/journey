@@ -1,6 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import prettyMs from "pretty-ms";
 import { useCallback, useEffect, useState } from "react";
+import { Document, Page } from "react-pdf";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
 import {
@@ -14,8 +15,8 @@ import { MenuLayout } from "../components/layout/menu/menu-layout";
 import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
 import { useCommand } from "../hooks/useCommand";
 import { SectionModuleType } from "../types";
-// import { usePdf } from "@mikecousins/react-pdf";
-import PDF from "react-pdf-js-infinite";
+import "react-pdf/dist/Page/TextLayer.css";
+import "react-pdf/dist/Page/AnnotationLayer.css";
 
 export const Course = () => {
 	const [match, params] = useRoute("/course/:courseId/:moduleId?");
@@ -140,13 +141,25 @@ const ResourceContentBlock = ({
 	contentBlobs,
 	// moduleData,
 }: { contentBlobs?: ContentBlob[]; moduleData: SectionModule }) => {
+	// todo: move these to a separate component
+	const [pageCount, setPageCount] = useState<number | undefined>(undefined);
+	const [page, setPage] = useState<number>(1);
+
 	const contentBlob = contentBlobs?.[0];
 	const localPath = convertFileSrc(contentBlob?.path ?? "");
 
 	if (contentBlob?.mimeType === "application/pdf") {
 		return (
-			<div className="w-full max-h-200 mb-20 h-full overflow-y-scroll border-1 border-ivory/10 rounded-lg">
-				<PDF rotate={180} file={localPath} className="mx-auto" />
+			<div className="w-full max-h-screen flex flex-col mb-20 h-full overflow-y-scroll border-1 border-ivory/10 rounded-lg">
+				<Document
+					file={localPath}
+					onLoadSuccess={({ numPages }) => setPageCount(numPages)}
+					className="mx-auto w-1/2 items-center justify-center flex flex-col space-y-4"
+				>
+					{[...Array(pageCount).keys()].map((index) => (
+						<Page key={index + 1} pageNumber={index + 1} />
+					))}
+				</Document>
 			</div>
 		);
 	}

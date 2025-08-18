@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { navigate } from "wouter/use-browser-location";
 import IconJourney from "~icons/journey/journey";
 import IconArrowRight from "~icons/tabler/arrow-right";
-import { events, type AuthStatus as AuthStatusPayload, commands } from "../bindings";
+import { commands, events, type AuthStatus as AuthStatusPayload } from "../bindings";
 import { Button } from "../components/button";
 import { Dialog, DialogBodyFailed, DialogBodySuccess } from "../components/dialog";
 import { Input } from "../components/input";
