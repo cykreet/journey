@@ -25,10 +25,12 @@ impl Database {
 		// CHANGEEGE
 		create_dir_all(&app_dir).map_err(|e| format!("Failed to create app data directory: {}", e))?;
 		let db_path = app_dir.join("journey.db");
-		set_var(
-			"DATABASE_URL",
-			format!("sqlite://{}?mode=rwc", db_path.display()),
-		);
+		unsafe {
+			set_var(
+				"DATABASE_URL",
+				format!("sqlite://{}?mode=rwc", db_path.display()),
+			)
+		};
 
 		// true for dev command or build --debug, false otherwise
 		// https://tauri.app/reference/environment-variables/
