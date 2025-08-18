@@ -11,7 +11,7 @@ const host = process.env.TAURI_DEV_HOST;
 
 const require = createRequire(import.meta.url);
 const pdfjsDistPath = path.dirname(require.resolve("pdfjs-dist/package.json"));
-const pdfWorkerPath = path.join(pdfjsDistPath, "build", "pdf.worker.mjs");
+const pdfWorkerPath = normalizePath(path.join(pdfjsDistPath, "build", "pdf.worker.mjs"));
 const cMapsDir = normalizePath(path.join(pdfjsDistPath, "cmaps"));
 const standardFontsDir = normalizePath(
 	path.join(path.dirname(require.resolve("pdfjs-dist/package.json")), "standard_fonts"),
