@@ -1,6 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import prettyMs from "pretty-ms";
-import { memo, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
 import {
@@ -22,11 +22,9 @@ export const Course = () => {
 	if (!match || params.courseId == null) navigate("/home", { replace: true });
 	if (params?.courseId == null) throw new Error("course id not found in params");
 
-	console.log("module count", courseData?.course.moduleCount);
 	let moduleOmitCount = courseData?.course.moduleCount ?? 0;
 	const sidebarSections = courseData?.sections?.map((section) => {
 		moduleOmitCount -= section.modules.length;
-		console.log("subtracting from module omit count", section.modules.length, "now", moduleOmitCount);
 
 		return {
 			id: section.section.id,
@@ -140,8 +138,12 @@ const ResourceContentBlock = ({
 	contentBlobs,
 	moduleData,
 }: { contentBlobs?: ContentBlob[]; moduleData: SectionModule }) => {
-	const contentBlob = contentBlobs?.[0];
-	const localPath = convertFileSrc(contentBlob?.path ?? "");
+	if (contentBlobs == null || contentBlobs[0] == null) {
+		return <div className="text-wood-100">No resources available for this module.</div>;
+	}
+
+	const contentBlob = contentBlobs[0];
+	const localPath = convertFileSrc(contentBlob.path);
 
 	if (contentBlob?.mimeType === "application/pdf") {
 		return (
@@ -157,58 +159,58 @@ const ResourceContentBlock = ({
 	}
 };
 
-const PageContentBlock = memo(
-	({ moduleContent, contentBlobs }: { moduleContent: ModuleContent[]; contentBlobs?: ContentBlob[] }) => {
-		const [contentBlocks, setContentBlocks] = useState<{ id: number; content: string }[] | undefined>(undefined);
+const PageContentBlock = ({
+	moduleContent,
+	contentBlobs,
+}: { moduleContent: ModuleContent[]; contentBlobs?: ContentBlob[] }) => {
+	const [contentBlocks, setContentBlocks] = useState<{ id: number; content: string }[] | undefined>(undefined);
 
-		useEffect(() => {
-			// todo: parsed src strings are not used when loading for some reason
-			const parseContent = async () => {
-				const parsedContent = moduleContent.map((content) => {
-					// todo: compile latex expressions using something like katex
-					const contentHtml = replaceSrc(content.content);
-					return { id: content.id, content: contentHtml };
-				});
+	useEffect(() => {
+		const parseContent = async () => {
+			const parsedContent = moduleContent.map((content) => {
+				// todo: compile latex expressions using something like katex
+				const contentHtml = replaceSrc(contentBlobs ?? [], content.content);
+				return { id: content.id, content: contentHtml };
+			});
 
-				setContentBlocks(parsedContent);
-			};
-
-			parseContent();
-
-			return () => {
-				setContentBlocks(undefined);
-			};
-		}, [moduleContent]);
-
-		const replaceSrc = (html: string) => {
-			const regex = /src="([^"]+)"/g;
-			const matches = Array.from(html.matchAll(regex));
-			let replacedHtml = html;
-
-			for (const match of matches) {
-				const srcPath = match[1];
-				if (srcPath.startsWith("http://") || srcPath.startsWith("https://") || srcPath.startsWith("data:")) continue;
-				const filePath = contentBlobs?.find((blob) => decodeURI(srcPath).includes(blob.name))?.path;
-				if (filePath == null) continue;
-
-				const localPath = convertFileSrc(filePath);
-				replacedHtml = replacedHtml.replace(match[0], `src="${localPath}"`);
-			}
-
-			return replacedHtml;
+			setContentBlocks(parsedContent);
 		};
 
-		return (
-			<div className="w-full h-full" id="module-content">
-				{contentBlocks?.map((block) => (
-					<div
-						className="w-full h-full"
-						key={block.id}
-						/* biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation> */
-						dangerouslySetInnerHTML={{ __html: block.content }}
-					/>
-				))}
-			</div>
-		);
-	},
-);
+		parseContent();
+
+		return () => {
+			setContentBlocks(undefined);
+		};
+	}, [contentBlobs, moduleContent]);
+
+	const replaceSrc = useCallback((blobs: ContentBlob[], html: string) => {
+		const regex = /src="([^"]+)"/g;
+		const matches = Array.from(html.matchAll(regex));
+		let replacedHtml = html;
+
+		for (const match of matches) {
+			const srcPath = match[1];
+			if (srcPath.startsWith("http://") || srcPath.startsWith("https://") || srcPath.startsWith("data:")) continue;
+			const filePath = blobs.find((blob) => decodeURI(srcPath).includes(blob.name))?.path;
+			if (filePath == null) continue;
+
+			const localPath = convertFileSrc(filePath);
+			replacedHtml = replacedHtml.replace(match[0], `src="${localPath}"`);
+		}
+
+		return replacedHtml;
+	}, []);
+
+	return (
+		<div className="w-full h-full" id="module-content">
+			{contentBlocks?.map((block) => (
+				<div
+					className="w-full h-full"
+					key={block.id}
+					/* biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation> */
+					dangerouslySetInnerHTML={{ __html: block.content }}
+				/>
+			))}
+		</div>
+	);
+};

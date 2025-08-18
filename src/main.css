@@ -146,7 +146,11 @@ p {
 		margin-left: 1.5em;
 	}
 
+	/* ideally we'd have tables scroll horizontally when it overflows */
+	/* but we don't (yet) control parents of the table element */
 	table {
+		width: 100%;
+		table-layout: fixed;
 		border-collapse: collapse;
 	}
 
@@ -161,6 +165,7 @@ p {
 		padding: 8px;
 		text-align: left;
 		vertical-align: top;
+		word-wrap: break-word;
 	}
 
 	hr {

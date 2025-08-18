@@ -3,7 +3,8 @@ name = "journey"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["cykreet"]
-edition = "2021"
+edition = "2024"
+rust-version = "1.89.0"
 
 [profile.dev]
 incremental = true

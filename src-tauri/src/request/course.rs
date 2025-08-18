@@ -4,7 +4,7 @@ use entity::section_module::SectionModuleType;
 use futures::StreamExt;
 use migration::Expr;
 use sea_orm::{
-	sea_query, ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait,
+	ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait, sea_query,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -346,8 +346,22 @@ pub async fn get_module_content(
 					}
 
 					if let Some(mime_type) = &content.mime_type {
-						// todo: either check time modified on module or make HEAD request to check "last-modified" header
-						// to avoid downloading the same file again if it hasn't changed
+						let existing_blob = entity::ContentBlob::find()
+							.filter(
+								Condition::all()
+									.add(entity::content_blob::Column::ModuleId.eq(module_id))
+									.add(entity::content_blob::Column::Name.eq(&content.file_name)),
+							)
+							.one(&txn)
+							.await
+							.map_err(|e| e.to_string())?;
+						// check time modified on module to avoid downloading the same file again if it hasn't changed
+						if let Some(blob) = existing_blob
+							&& content.time_modified as i64 > blob.updated_at
+						{
+							continue;
+						}
+
 						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
 						let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
 						if content_response.status().is_success().not() {
@@ -376,7 +390,13 @@ pub async fn get_module_content(
 						let content_blob = entity::content_blob::ActiveModel {
 							name: ActiveValue::Set(content.file_name.clone()),
 							module_id: ActiveValue::Set(module_id),
-							updated_at: ActiveValue::Set(Utc::now().timestamp()),
+							// updated_at: ActiveValue::Set(Utc::now().timestamp()),
+							updated_at: ActiveValue::Set(
+								content
+									.time_modified
+									.try_into()
+									.unwrap_or(Utc::now().timestamp()),
+							),
 							mime_type: ActiveValue::Set(mime_type.to_string()),
 							path: ActiveValue::Set(path.to_str().unwrap().to_string()),
 						};

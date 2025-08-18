@@ -13,12 +13,12 @@ use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_store::StoreExt;
 use tauri_plugin_updater::UpdaterExt;
-use tauri_specta::{collect_commands, collect_events, Builder, Event};
+use tauri_specta::{Builder, Event, collect_commands, collect_events};
 
-use crate::auth::{auth_keys, open_login_window, AuthState, AuthStatus, MoodleAuthEvent};
+use crate::auth::{AuthState, AuthStatus, MoodleAuthEvent, auth_keys, open_login_window};
 use crate::request::course::{
-	get_content_blobs, get_course, get_module_content, get_user_courses, CourseSectionWithModules,
-	CourseWithSections, SUPPORTED_EMBED_TYPES, SUPPORTED_MODULE_TYPES,
+	CourseSectionWithModules, CourseWithSections, SUPPORTED_EMBED_TYPES, SUPPORTED_MODULE_TYPES,
+	get_content_blobs, get_course, get_module_content, get_user_courses,
 };
 use crate::sync_task::SyncState;
 
