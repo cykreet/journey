@@ -19,6 +19,8 @@
 		"fs:allow-applocaldata-meta",
 		"fs:allow-applocaldata-read-recursive",
 		"fs:allow-applocaldata-write-recursive",
-		"updater:default"
+		"updater:default",
+		"opener:allow-open-url",
+		"opener:allow-default-urls"
 	]
 }

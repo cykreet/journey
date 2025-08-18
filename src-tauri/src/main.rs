@@ -150,7 +150,7 @@ pub fn main() {
 			} => {
 				let handle = app_handle.clone();
 				tauri::async_runtime::spawn(async move {
-					update(handle).await.expect("failed to update application");
+					update(handle).await.ok();
 				});
 			}
 			RunEvent::WindowEvent {

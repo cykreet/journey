@@ -1,13 +1,14 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useRef, useState } from "react";
+import { navigate } from "wouter/use-browser-location";
 import IconJourney from "~icons/journey/journey";
-import { type AuthStatus as AuthStatusPayload, commands, events } from "../bindings";
+import IconArrowRight from "~icons/tabler/arrow-right";
+import { events, type AuthStatus as AuthStatusPayload, commands } from "../bindings";
 import { Button } from "../components/button";
 import { Dialog, DialogBodyFailed, DialogBodySuccess } from "../components/dialog";
 import { Input } from "../components/input";
+import { Link } from "../components/link";
 import { AuthStatus } from "../types";
-import { getVersion } from "@tauri-apps/api/app";
-import { navigate } from "wouter/use-browser-location";
-import IconArrowRight from "~icons/tabler/arrow-right";
 
 export const Index = () => {
 	const [showDialog, setShowDialog] = useState(false);
@@ -83,15 +84,13 @@ export const Index = () => {
 						</div>
 						<span className="w-60">
 							Get started by authenticating with your Moodle instance.
-							<a
+							<Link
 								className="text-sm ml-0.5 text-wood-100 align-top"
 								title="Learn more"
 								href="https://github.com/cykreet/journey"
-								target="_blank"
-								rel="noreferrer"
 							>
 								?
-							</a>
+							</Link>
 						</span>
 					</div>
 				</div>
