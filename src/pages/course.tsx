@@ -143,7 +143,6 @@ const ResourceContentBlock = ({
 }: { contentBlobs?: ContentBlob[]; moduleData: SectionModule }) => {
 	// todo: move these to a separate component
 	const [pageCount, setPageCount] = useState<number | undefined>(undefined);
-	const [page, setPage] = useState<number>(1);
 
 	const contentBlob = contentBlobs?.[0];
 	const localPath = convertFileSrc(contentBlob?.path ?? "");
