@@ -13,7 +13,7 @@ pub struct SyncState {
 // 3 minutes
 const SYNC_TIMEOUT: u64 = 60 * 3;
 
-// todo: this could probably be moved to a macro
+// todo: this could probably just be a macro
 pub struct SyncTask<T> {
 	pub app_handle: AppHandle,
 	pub sync_id: String,
@@ -80,17 +80,15 @@ where
 			}
 		}
 
-		let result = task_fn(self.app_handle.clone())
-			.await
-			.map_err(|e| e.to_string());
-		match result {
+		match task_fn(self.app_handle.clone()).await {
 			Ok(_) => {
 				sync_state
 					.tasks
 					.insert(self.sync_id.to_string(), json!(now));
 			}
 			Err(e) => {
-				return Err(e.into());
+				log::error!("Error in sync task {}: {}", self.sync_id, e);
+				return Err(e);
 			}
 		};
 

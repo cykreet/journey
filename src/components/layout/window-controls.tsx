@@ -3,14 +3,18 @@ import { useState } from "react";
 import IconLayoutSidebar from "~icons/tabler/layout-sidebar-filled";
 import IconMinus from "~icons/tabler/minus";
 import IconSquare from "~icons/tabler/square";
-import IconSquares from "~icons/tabler/squares";
 import IconX from "~icons/tabler/x";
 import { Button, ButtonStyle } from "../button";
 import { SidebarContext } from "./sidebar-context";
+import { ModuleContext } from "./module-context";
 
 export const WindowControls = ({ children }: { children: React.ReactNode }) => {
-	const [maximised, setMaximised] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [moduleName, setModuleName] = useState<string | undefined>(undefined);
+	const [moduleError, setModuleError] = useState<string | undefined>(undefined);
+	const [moduleLoading, setModuleLoading] = useState(false);
+
+	const statusColour = moduleLoading ? "bg-wood-100" : moduleError ? "bg-rose-500" : "bg-goo";
 
 	return (
 		<div className="w-full h-full flex flex-col">
@@ -24,6 +28,15 @@ export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 						<IconLayoutSidebar className="w-5 h-5" />
 					</Button>
 				</div>
+				{moduleName && (
+					// todo: display module error state on click with a popout or something
+					<Button onClick={() => {}} buttonStyle={ButtonStyle.BORDERLESS} className="inline my-auto text-xs px-3">
+						<div
+							className={`w-1.5 h-1.5 mr-2 rounded-full inline-block ${statusColour} ${moduleLoading && "animate-pulse"}`}
+						/>
+						{moduleName}
+					</Button>
+				)}
 				<div className="flex flex-row items-center *:rounded-none! h-full">
 					<Button
 						onClick={() => getCurrentWebviewWindow().minimize()}
@@ -33,20 +46,15 @@ export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 						<IconMinus className="w-4 h-4 mx-2" />
 					</Button>
 					<Button
-						onClick={() => {
+						onClick={async () => {
 							const window = getCurrentWebviewWindow();
-							if (maximised) {
-								window.unmaximize();
-								setMaximised(false);
-							} else {
-								window.maximize();
-								setMaximised(true);
-							}
+							if (await window.isMaximized()) window.unmaximize();
+							else window.maximize();
 						}}
 						buttonStyle={ButtonStyle.GHOST}
 						className="text-wood-100 h-full"
 					>
-						{(maximised && <IconSquares className="w-3.5 h-3.5 mx-2" />) || <IconSquare className="w-3.5 h-3.5 mx-2" />}
+						<IconSquare className="w-3.5 h-3.5 mx-2" />
 					</Button>
 					<Button
 						onClick={() => getCurrentWebviewWindow().close()}
@@ -58,7 +66,20 @@ export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 				</div>
 			</div>
 			<div className="flex flex-row max-h-full overflow-hidden w-full h-full">
-				<SidebarContext.Provider value={sidebarCollapsed}>{children}</SidebarContext.Provider>
+				<SidebarContext.Provider value={sidebarCollapsed}>
+					<ModuleContext.Provider
+						value={{
+							name: moduleName,
+							loading: moduleLoading,
+							error: moduleError,
+							setName: setModuleName,
+							setLoading: setModuleLoading,
+							setError: setModuleError,
+						}}
+					>
+						{children}
+					</ModuleContext.Provider>
+				</SidebarContext.Provider>
 			</div>
 		</div>
 	);

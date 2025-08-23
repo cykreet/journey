@@ -23,6 +23,7 @@ export const Sidebar = () => {
 							style={{ display: location.startsWith(`/course/${course.id}`) ? "block" : "none" }}
 						/>
 						<SidebarIcon
+							title={course.name}
 							iconStyle={SidebarIconStyle.WOOD}
 							style={{
 								backgroundColor: course.colour ?? undefined,
@@ -33,11 +34,6 @@ export const Sidebar = () => {
 					</Link>
 				))}
 			</div>
-			{/* <div className="mt-auto pt-2">
-				<SidebarIcon iconStyle={SidebarIconStyle.WOOD}>
-					<IconCog className="w-6 h-6 mx-auto" />
-				</SidebarIcon>
-			</div> */}
 		</div>
 	);
 };

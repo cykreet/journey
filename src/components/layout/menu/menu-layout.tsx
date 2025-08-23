@@ -28,9 +28,7 @@ export const MenuLayout = ({ key, children, header, loading, sidebarSections, si
 			<Panel className="m-0 h-full flex-1" order={2}>
 				{/* overflow-y-auto here preserves scroll position, as opposed to being on a child element */}
 				<div className="flex flex-col h-full w-full overflow-y-auto">
-					<div className="flex container mx-auto h-full w-full">
-						<div className="flex flex-col mt-10 w-full mx-20">{children}</div>
-					</div>
+					<div className="flex flex-col w-full">{children}</div>
 				</div>
 			</Panel>
 		</PanelGroup>

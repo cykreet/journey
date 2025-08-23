@@ -57,8 +57,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 				let (course, sections) = entity::Course::find_by_id(course_id)
 					.find_with_related(entity::CourseSection)
 					.all(&db)
-					.await
-					.map_err(|e| e.to_string())?
+					.await?
 					.into_iter()
 					.next()
 					.ok_or_else(|| format!("Course with id {} not found", course_id))?;
@@ -72,8 +71,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 								.add(entity::section_module::Column::ModuleType.is_in(SUPPORTED_MODULE_TYPES)),
 						)
 						.all(&db)
-						.await
-						.map_err(|e| e.to_string())?;
+						.await?;
 
 					let supported_modules = modules
 						.into_iter()
@@ -115,24 +113,22 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 					&client,
 					host.as_str().unwrap(),
 					ws_token.as_str().unwrap(),
-				)
-				.map_err(|e| e.to_string())?;
+				)?;
 
-				let response = client.execute(request).await.unwrap();
+				let response = client.execute(request).await?;
 				if response.status().is_success().not() {
 					return Err(format!("Failed to fetch course sections with id: {course_id}").into());
 				}
 
-				let body = response.text().await.unwrap();
+				let body = response.text().await?;
 				if body.contains("errorcode") {
 					return Err(format!("Could not get course: {}", body).into());
 				}
 
-				let sections_data: Vec<RestCourseSection> =
-					serde_json::from_str(&body).map_err(|e| e.to_string())?;
+				let sections_data: Vec<RestCourseSection> = serde_json::from_str(&body)?;
 				let state = app_handle.state::<DatabaseState>();
 				let db = &state.0;
-				let txn = db.begin().await.map_err(|e| e.to_string())?;
+				let txn = db.begin().await?;
 
 				entity::Course::update_many()
 					// module_count helps us keep track of the number of modules in this course
@@ -148,8 +144,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 					)
 					.filter(entity::course::Column::Id.eq(course_id))
 					.exec(&txn)
-					.await
-					.map_err(|e| e.to_string())?;
+					.await?;
 
 				for section in sections_data {
 					let section_entity = entity::course_section::ActiveModel {
@@ -168,8 +163,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 								.to_owned(),
 						)
 						.exec(&txn)
-						.await
-						.map_err(|e| e.to_string())?;
+						.await?;
 
 					for module in section.modules {
 						if !SUPPORTED_MODULE_TYPES.contains(&module.module_type) {
@@ -178,13 +172,13 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 
 						let section_item = entity::section_module::ActiveModel {
 							id: ActiveValue::Set(module.id),
-							name: ActiveValue::Set(module.name.clone()),
+							name: ActiveValue::Set(html_escape::decode_html_entities(&module.name).to_string()),
 							section_id: ActiveValue::Set(section.id),
 							module_type: ActiveValue::Set(module.module_type),
 							mime_types: match module.contents_info {
-								Some(contents_info) => ActiveValue::Set(Some(
-									serde_json::to_value(contents_info.mime_types).map_err(|e| e.to_string())?,
-								)),
+								Some(contents_info) => {
+									ActiveValue::Set(Some(serde_json::to_value(contents_info.mime_types)?))
+								}
 								None => ActiveValue::NotSet,
 							},
 							updated_at: ActiveValue::Set(Utc::now().timestamp()),
@@ -201,12 +195,11 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 									.to_owned(),
 							)
 							.exec(&txn)
-							.await
-							.map_err(|e| e.to_string())?;
+							.await?;
 					}
 				}
 
-				txn.commit().await.map_err(|e| e.to_string())?;
+				txn.commit().await?;
 				Ok(())
 			})
 		})
@@ -250,21 +243,19 @@ pub async fn get_module_content(
 					&client,
 					store.get(auth_keys::MOODLE_HOST).unwrap().as_str().unwrap(),
 					token,
-				)
-				.map_err(|e| e.to_string())?;
+				)?;
 
-				let response = client.execute(request).await.unwrap();
+				let response = client.execute(request).await?;
 				if response.status().is_success().not() {
 					return Err(format!("Failed to fetch module content with id: {module_id}").into());
 				}
 
-				let body = response.text().await.unwrap();
+				let body = response.text().await?;
 				if body.contains("errorcode") {
 					return Err(format!("Could not get module content: {}", body).into());
 				}
 
-				let sections_data: Vec<RestCourseSection> =
-					serde_json::from_str(&body).map_err(|e| e.to_string())?;
+				let sections_data: Vec<RestCourseSection> = serde_json::from_str(&body)?;
 				let module = sections_data
 					.into_iter()
 					.flat_map(|section| section.modules)
@@ -278,7 +269,7 @@ pub async fn get_module_content(
 				let module_contents = module.contents.unwrap_or_default();
 				let state = app_handle.state::<DatabaseState>();
 				let db = &state.0;
-				let txn = db.begin().await.map_err(|e| e.to_string())?;
+				let txn = db.begin().await?;
 
 				for (i, content) in module_contents.iter().enumerate() {
 					// ids of the content blocks stored in file path as "/id/"
@@ -288,9 +279,7 @@ pub async fn get_module_content(
 					let content_id = if content.file_path == "/" {
 						1
 					} else {
-						content.file_path[1..content.file_path.len() - 1]
-							.parse::<i32>()
-							.map_err(|e| e.to_string())?
+						content.file_path[1..content.file_path.len() - 1].parse::<i32>()?
 					};
 
 					// "books" have an additional structure content object that contains the hierarchy of the contents,
@@ -300,14 +289,14 @@ pub async fn get_module_content(
 					// stored on the filesystem, with paths stored in the database.
 					if content.file_name == "index.html" {
 						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
-						let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
+						let content_response = reqwest::get(file_url).await?;
 						if content_response.status().is_success().not() {
 							return Err(format!("Failed to fetch content for content id: {}", content_id).into());
 						}
 
 						// todo: remove any scripts and stylesheets that are not needed
 						// html content is usually also pretty ugly with empty tags, etc.
-						let content_text = content_response.text().await.map_err(|e| e.to_string())?;
+						let content_text = content_response.text().await?;
 						let module_content = entity::module_content::ActiveModel {
 							id: ActiveValue::Set(content_id),
 							module_id: ActiveValue::Set(module_id),
@@ -330,8 +319,7 @@ pub async fn get_module_content(
 								.to_owned(),
 							)
 							.exec(&txn)
-							.await
-							.map_err(|e| e.to_string())?;
+							.await?;
 					}
 
 					if let Some(mime_type) = &content.mime_type {
@@ -342,8 +330,7 @@ pub async fn get_module_content(
 									.add(entity::content_blob::Column::Name.eq(&content.file_name)),
 							)
 							.one(&txn)
-							.await
-							.map_err(|e| e.to_string())?;
+							.await?;
 						// check time modified on content to avoid downloading the same file again if it hasn't changed
 						if let Some(blob) = existing_blob
 							&& content.time_modified as i64 > blob.updated_at
@@ -352,7 +339,7 @@ pub async fn get_module_content(
 						}
 
 						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
-						let content_response = reqwest::get(file_url).await.map_err(|e| e.to_string())?;
+						let content_response = reqwest::get(file_url).await?;
 						if content_response.status().is_success().not() {
 							return Err(
 								format!(
@@ -371,10 +358,9 @@ pub async fn get_module_content(
 							.join("content_blobs")
 							.join(module_id.to_string())
 							.join(&content.file_name);
-						let blob = content_response.bytes().await.map_err(|e| e.to_string())?;
-						std::fs::create_dir_all(app_dir.join("content_blobs").join(module_id.to_string()))
-							.map_err(|e| e.to_string())?;
-						std::fs::write(&path, blob).map_err(|e| e.to_string())?;
+						let blob = content_response.bytes().await?;
+						std::fs::create_dir_all(app_dir.join("content_blobs").join(module_id.to_string()))?;
+						std::fs::write(&path, blob)?;
 
 						let content_blob = entity::content_blob::ActiveModel {
 							name: ActiveValue::Set(content.file_name.clone()),
@@ -405,8 +391,7 @@ pub async fn get_module_content(
 								.to_owned(),
 							)
 							.exec(&txn)
-							.await
-							.map_err(|e| e.to_string())?;
+							.await?;
 
 						// modules with the resource type usually (from what i've seen) only consist of a single content blob (pdf)
 						// and so we set the module content to the content blob path
@@ -435,8 +420,7 @@ pub async fn get_module_content(
 									.to_owned(),
 								)
 								.exec(&txn)
-								.await
-								.map_err(|e| e.to_string())?;
+								.await?;
 						}
 					}
 				}
@@ -451,7 +435,7 @@ pub async fn get_module_content(
 				// 		if let Some(structure_content) = structure_content {
 				// 			let structure: Vec<rest::RestCourseSectionModuleStructureItem> =
 				// 				serde_json::from_str(&structure_content.content.as_ref().unwrap())
-				// 					.map_err(|e| e.to_string())?;
+				// 					?;
 
 				// 			for item in structure
 				// 				.iter()
@@ -463,12 +447,12 @@ pub async fn get_module_content(
 				// 	}
 				// }
 
-				txn.commit().await.map_err(|e| e.to_string())?;
+				txn.commit().await?;
 				Ok(())
 			})
 		})
 		.await
-		.map_err(|e| e.to_string())
+		.map_err(|e| format!("{}", e.to_string()))
 }
 
 #[tauri::command]
@@ -488,8 +472,7 @@ pub async fn get_content_blobs(
 			let blobs = entity::ContentBlob::find()
 				.filter(Condition::all().add(entity::content_blob::Column::ModuleId.eq(module_id)))
 				.all(&db)
-				.await
-				.map_err(|e| e.to_string())?;
+				.await?;
 
 			if blobs.is_empty() {
 				return Err(format!("No content blobs found for module id: {}", module_id).into());
@@ -510,10 +493,7 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 		.return_state(move |state| {
 			let db = state.0.clone();
 			Box::pin(async move {
-				let courses = entity::Course::find()
-					.all(&db)
-					.await
-					.map_err(|e| e.to_string())?;
+				let courses = entity::Course::find().all(&db).await?;
 
 				Ok(courses)
 			})
@@ -534,27 +514,19 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 						user_id,
 						host.as_str().unwrap(),
 						ws_token.as_str().unwrap(),
-					)
-					.map_err(|e| e.to_string())?;
+					)?;
 
-					let response = client.execute(request).await.unwrap();
+					let response = client.execute(request).await?;
 					if response.status().is_success().not() {
-						return Err(
-							format!(
-								"Could not get user courses: {}",
-								response.text().await.unwrap()
-							)
-							.into(),
-						);
+						return Err(format!("Could not get user courses: {}", response.text().await?).into());
 					}
 
-					let body = response.text().await.unwrap();
+					let body = response.text().await?;
 					if body.contains("errorcode") {
 						return Err(format!("Could not get user courses: {}", body).into());
 					}
 
-					let course_data =
-						serde_json::from_str::<Vec<RestCourse>>(&body).map_err(|e| e.to_string())?;
+					let course_data = serde_json::from_str::<Vec<RestCourse>>(&body)?;
 					let courses = course_data
 						.into_iter()
 						.map(|course| entity::course::ActiveModel {
@@ -568,7 +540,7 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 
 					let state = app_handle.state::<DatabaseState>();
 					let db = &state.0;
-					let txn = db.begin().await.map_err(|e| e.to_string())?;
+					let txn = db.begin().await?;
 
 					for course in courses {
 						entity::Course::insert(course)
@@ -583,11 +555,10 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 									.to_owned(),
 							)
 							.exec(&txn)
-							.await
-							.map_err(|e| e.to_string())?;
+							.await?;
 					}
 
-					txn.commit().await.map_err(|e| e.to_string())?;
+					txn.commit().await?;
 					Ok(())
 				}
 			})

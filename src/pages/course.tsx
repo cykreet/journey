@@ -1,11 +1,11 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import prettyMs from "pretty-ms";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
+import IconJourney from "~icons/journey/journey?color=red";
 import {
 	type ContentBlob,
 	type CourseWithSections,
@@ -15,8 +15,12 @@ import {
 } from "../bindings";
 import { MenuLayout } from "../components/layout/menu/menu-layout";
 import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
+import { ModuleContext } from "../components/layout/module-context";
 import { useCommand } from "../hooks/useCommand";
 import { SectionModuleType } from "../types";
+
+const SRC_REGEX = /src="([^"]+)"/g;
+const ANCHOR_REGEX = /<a[^>](.[^>]+)>/g;
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 const pdfOptions = {
@@ -33,16 +37,21 @@ export const Course = () => {
 	if (params?.courseId == null) throw new Error("course id not found in params");
 
 	let moduleOmitCount = courseData?.course.moduleCount ?? 0;
+	let selectedModuleName: string | undefined;
 	const sidebarSections = courseData?.sections?.map((section) => {
 		moduleOmitCount -= section.modules.length;
 
 		return {
 			id: section.section.id,
 			name: section.section.name,
-			subItems: section.modules.map((courseModule) => ({
-				name: courseModule.name,
-				href: `/course/${params?.courseId}/${courseModule.id}`,
-			})),
+			subItems: section.modules.map((courseModule) => {
+				if (courseModule.id.toString() === params?.moduleId) selectedModuleName = courseModule.name;
+
+				return {
+					name: courseModule.name,
+					href: `/course/${params?.courseId}/${courseModule.id}`,
+				};
+			}),
 		};
 	}) as MenuSidebarSection[];
 
@@ -70,6 +79,7 @@ export const Course = () => {
 			{params.moduleId != null && (
 				<CourseModule
 					key={params.moduleId}
+					selectedModuleName={selectedModuleName}
 					courseData={courseData as CourseWithSections}
 					courseId={Number(params.courseId)}
 					moduleId={Number(params.moduleId)}
@@ -80,60 +90,36 @@ export const Course = () => {
 };
 
 const CourseModule = ({
+	selectedModuleName,
 	courseId,
 	moduleId,
-}: { courseData: CourseWithSections; courseId: number; moduleId: number }) => {
+}: { selectedModuleName?: string; courseData: CourseWithSections; courseId: number; moduleId: number }) => {
 	const { data, error, loading } = useCommand(commands.getModuleContent, courseId, moduleId);
+	const { data: contentBlobs, loading: blobsLoading } = useCommand(commands.getContentBlobs, courseId, moduleId);
+	const moduleContext = useContext(ModuleContext);
 
-	const statusColour = loading ? "bg-wood-100" : error ? "bg-rose-500" : "bg-goo";
 	const [moduleData, moduleContent] = data || [];
-	const lastSyncTime =
-		Date.now() - (typeof moduleData?.updatedAt === "number" ? Number(moduleData.updatedAt) * 1000 : 0);
-	const prettySyncTime = prettyMs(lastSyncTime, {
-		compact: false,
-		verbose: true,
-		hideSeconds: true,
-	});
 
 	useEffect(() => {
 		if (data == null || loading) return;
 		localStorage.setItem(`lastViewedModule-${courseId}`, moduleId.toString());
 	}, [data, courseId, moduleId, loading]);
 
-	return (
-		<div className="mb-4 w-full">
-			<div className="flex flex-col text-wood-100 mb-10 bg-wood-700 rounded border border-ivory/10 p-2">
-				<span className="font-bold">{moduleData?.name}</span>
-				<div className="flex flex-row space-x-2 items-center">
-					<div className={`${statusColour} rounded-full w-1.5 h-1.5 ${loading ? "animate-pulse" : ""}`} />
-					<span className="text-sm text-wood-200">
-						{loading || error
-							? "..."
-							: `Last synced ${lastSyncTime > 60 * 1000 ? `${prettySyncTime} ago` : "just now"}`}
-					</span>
-				</div>
-			</div>
-			{(error && (
-				<div className="mb-4">
-					<span className="font-bold">Error loading module content:</span> {error}
-				</div>
-			)) ||
-				(data && <ModuleContentBlock courseId={courseId} moduleData={moduleData!} moduleContent={moduleContent} />)}
-		</div>
-	);
-};
+	useEffect(() => {
+		if (moduleContext == null) return;
+		moduleContext.setName(selectedModuleName);
+		moduleContext.setLoading((loading || blobsLoading) ?? true);
+		moduleContext.setError(error);
 
-const ModuleContentBlock = ({
-	courseId,
-	moduleData,
-	moduleContent,
-}: { courseId: number; moduleData: SectionModule; moduleContent?: ModuleContent[] }) => {
-	const { data: contentBlobs } = useCommand(commands.getContentBlobs, courseId, moduleData.id);
+		return () => {
+			moduleContext.setName(undefined);
+			moduleContext.setLoading(false);
+			moduleContext.setError(undefined);
+		};
+	}, [moduleContext, selectedModuleName, loading, blobsLoading, error]);
 
-	if (moduleContent == null || moduleContent.length === 0) {
-		// todo: replace with prettier errors
-		return <div className="text-wood-100">No content available for this module.</div>;
-	}
+	if ((moduleData == null || moduleContent == null) && loading == false) return;
+	if (moduleData == null || moduleContent == null) return;
 
 	if (moduleData.moduleType === SectionModuleType.Resource) {
 		return <ResourceContentBlock moduleData={moduleData} contentBlobs={contentBlobs} />;
@@ -156,18 +142,19 @@ const ResourceContentBlock = ({
 
 	if (contentBlob?.mimeType === "application/pdf") {
 		return (
-			<div className="w-full max-h-screen flex flex-col mb-20 h-full overflow-y-scroll border-1 border-ivory/10 rounded-lg">
-				<Document
-					file={localPath}
-					options={pdfOptions}
-					onLoadSuccess={({ numPages }) => setPageCount(numPages)}
-					className="mx-auto w-1/2 items-center justify-center flex flex-col space-y-4"
-				>
-					{[...Array(pageCount).keys()].map((index) => (
-						<Page key={index + 1} pageNumber={index + 1} width={800} className="max-w-2" />
-					))}
-				</Document>
-			</div>
+			<Document
+				file={localPath}
+				options={pdfOptions}
+				className="items-center w-full h-full justify-center flex flex-col space-y-4"
+				loading={<IconJourney className="w-14 h-14 mt-10 text-wood-300" />}
+				onLoadSuccess={({ numPages }) => setPageCount(numPages)}
+				externalLinkRel="noreferrer"
+				externalLinkTarget="_blank"
+			>
+				{[...Array(pageCount).keys()].map((index) => (
+					<Page key={index + 1} pageNumber={index + 1} width={800} />
+				))}
+			</Document>
 		);
 	}
 };
@@ -182,7 +169,8 @@ const PageContentBlock = ({
 		const parseContent = async () => {
 			const parsedContent = moduleContent.map((content) => {
 				// todo: compile latex expressions using something like katex
-				const contentHtml = replaceSrc(contentBlobs ?? [], content.content);
+				let contentHtml = replaceSrc(contentBlobs ?? [], content.content);
+				contentHtml = fixAnchors(contentHtml);
 				return { id: content.id, content: contentHtml };
 			});
 
@@ -197,8 +185,7 @@ const PageContentBlock = ({
 	}, [contentBlobs, moduleContent]);
 
 	const replaceSrc = useCallback((blobs: ContentBlob[], html: string) => {
-		const regex = /src="([^"]+)"/g;
-		const matches = Array.from(html.matchAll(regex));
+		const matches = Array.from(html.matchAll(SRC_REGEX));
 		let replacedHtml = html;
 
 		for (const match of matches) {
@@ -214,8 +201,20 @@ const PageContentBlock = ({
 		return replacedHtml;
 	}, []);
 
+	const fixAnchors = useCallback((html: string) => {
+		const matches = Array.from(html.matchAll(ANCHOR_REGEX));
+		let replacedHtml = html;
+
+		for (const match of matches) {
+			if (match[1].includes("target=")) continue;
+			replacedHtml = replacedHtml.replace(match[1], `${match[1]} target="_blank" rel="noreferrer"`);
+		}
+
+		return replacedHtml;
+	}, []);
+
 	return (
-		<div className="w-full h-full" id="module-content">
+		<div className="mt-10 mb-20 xs:max-w-[48rem] max-w-[40rem] mx-auto space-y-6" id="module-content">
 			{contentBlocks?.map((block) => (
 				<div
 					className="w-full h-full"

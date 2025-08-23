@@ -4,6 +4,7 @@ import { Loading } from "./loading";
 export enum ButtonStyle {
 	PRIMARY = "bg-goo text-wood hover:bg-goo/80",
 	IVORY = "bg-ivory/10 border border-ivory/20 hover:bg-ivory/5",
+	BORDERLESS = "bg-ivory/10 hover:bg-ivory/5",
 	GHOST = "bg-transparent text-wood hover:bg-ivory/5",
 }
 

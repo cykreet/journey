@@ -7,6 +7,7 @@ export const SidebarIconStyle = {
 };
 
 export const SidebarIcon = ({
+	title,
 	children,
 	className,
 	style,
@@ -15,6 +16,7 @@ export const SidebarIcon = ({
 	iconStyle,
 }: {
 	children: React.ReactNode;
+	title?: string;
 	className?: string;
 	style?: CSSProperties;
 	icon?: React.ReactNode;
@@ -29,7 +31,7 @@ export const SidebarIcon = ({
 
 	return (
 		// biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
-		<div className={classes} style={style} onClick={onClick}>
+		<div title={title} className={classes} style={style} onClick={onClick}>
 			{icon || children}
 		</div>
 	);

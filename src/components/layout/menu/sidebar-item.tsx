@@ -15,8 +15,8 @@ export const SidebarItem = ({
 }) => {
 	const Icon = icon;
 	const classNames = clsx(
-		"w-full hover:bg-ivory/8 py-1.5 flex px-3 flex-inline text-wood-100 text-sm items-center gap-2 select-none rounded-md cursor-pointer text-ellipsis overflow-hidden whitespace-nowrap",
-		active && "bg-ivory/10 text-tan!",
+		"w-full hover:border-goo hover:bg-goo/10 border-1 border-transparent py-1.5 flex px-3 flex-inline text-wood-100 text-sm items-center gap-2 select-none rounded-md cursor-pointer",
+		active && "bg-goo/10 text-goo!",
 		loading && "animate-pulse h-6 bg-ivory/8",
 	);
 
@@ -25,7 +25,7 @@ export const SidebarItem = ({
 			{!loading && (
 				<>
 					{Icon && <Icon />}
-					{children}
+					<span className="text-ellipsis overflow-hidden whitespace-nowrap">{children}</span>
 				</>
 			)}
 		</div>
