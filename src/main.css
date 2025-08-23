@@ -69,7 +69,7 @@ p {
 }
 
 ::-webkit-scrollbar-thumb {
-	@apply bg-wood-100 rounded-[4px] opacity-20;
+	@apply bg-wood-300 rounded-[4px] opacity-20;
 }
 
 ::-webkit-scrollbar-thumb:hover {
