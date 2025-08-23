@@ -66,6 +66,7 @@ pub fn main() {
 		.expect("failed to export typescript bindings");
 
 	tauri::Builder::default()
+		.plugin(tauri_plugin_window_state::Builder::new().build())
 		.plugin(tauri_plugin_fs::init())
 		.plugin(tauri_plugin_shell::init())
 		.invoke_handler(builder.invoke_handler())
@@ -117,6 +118,7 @@ pub fn main() {
 				.fullscreen(false)
 				.center()
 				.inner_size(1200.0, 600.0)
+				.visible(false) // prevent flashing when restoring state, will be visible after
 				.min_inner_size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
 
 			#[cfg(target_os = "macos")]

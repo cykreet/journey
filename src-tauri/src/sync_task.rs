@@ -1,7 +1,7 @@
 use std::{collections::HashMap, future::Future, pin::Pin};
 
 use serde_json::json;
-use tauri::{async_runtime::Mutex, AppHandle, Manager};
+use tauri::{AppHandle, Manager, async_runtime::Mutex};
 
 use crate::database::DatabaseState;
 
@@ -13,6 +13,7 @@ pub struct SyncState {
 // 3 minutes
 const SYNC_TIMEOUT: u64 = 60 * 3;
 
+// todo: this could probably be moved to a macro
 pub struct SyncTask<T> {
 	pub app_handle: AppHandle,
 	pub sync_id: String,
@@ -89,9 +90,6 @@ where
 					.insert(self.sync_id.to_string(), json!(now));
 			}
 			Err(e) => {
-				// sync_state
-				// 	.tasks
-				// 	.insert(self.sync_id.to_string(), json!(now + SYNC_TIMEOUT / 2));
 				return Err(e.into());
 			}
 		};
