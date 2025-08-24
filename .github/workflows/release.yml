@@ -61,7 +61,8 @@ jobs:
       - name: set version
         shell: bash
         run: |
-          echo MATRIX_ARGS="--config '{\"version\":\"$(echo ${{ github.ref_name }} | sed 's/^v//')\"}' ${{ matrix.args }}" >> $GITHUB_ENV
+          echo MATRIX_ARGS="--config '{\"version\":\"$(echo ${{ github.ref_name }} | sed 's/^v\([0-9][0-9.]*\).*/\1/')\"}' ${{ matrix.args }}" >> $GITHUB_ENV
+          echo RELEASE_NAME="Journey${{ contains(github.ref_name, 'beta') && ' Beta ' || ' ' }}v__VERSION__" >> $GITHUB_ENV
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -69,7 +70,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'Journey v__VERSION__'
+          # todo: remove after first stable release
+          # ideally future betas should not try to auto-update to latest versions
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ env.RELEASE_NAME }}
           updaterJsonPreferNsis: true
           args: ${{ env.MATRIX_ARGS }}
