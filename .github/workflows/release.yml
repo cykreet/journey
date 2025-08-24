@@ -72,7 +72,7 @@ jobs:
         with:
           # todo: remove after first stable release
           # ideally future betas should not try to auto-update to latest versions
-          tagName: ${{ github.ref_name }}
+          tagName: v__VERSION__-${{ contains(github.ref_name, 'beta') && 'beta' || 'stable' }}
           releaseName: ${{ env.RELEASE_NAME }}
           updaterJsonPreferNsis: true
           args: ${{ env.MATRIX_ARGS }}
