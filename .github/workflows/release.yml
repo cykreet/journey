@@ -71,6 +71,5 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'Journey v__VERSION__'
-          prerelease: true
           updaterJsonPreferNsis: true
           args: ${{ env.MATRIX_ARGS }}
