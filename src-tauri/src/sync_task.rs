@@ -54,9 +54,7 @@ where
 
 	pub async fn sync_state<F>(mut self, task_fn: F) -> Result<T, Box<dyn std::error::Error>>
 	where
-		F: FnOnce(
-				AppHandle,
-			) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>> + Send>>
+		F: FnOnce(AppHandle) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>
 			+ Send
 			+ 'static,
 	{
@@ -88,7 +86,7 @@ where
 			}
 			Err(e) => {
 				log::error!("Error in sync task {}: {}", self.sync_id, e);
-				return Err(e);
+				return Err(e.into());
 			}
 		};
 

@@ -214,7 +214,7 @@ const PageContentBlock = ({
 	}, []);
 
 	return (
-		<div className="mt-10 mb-20 xs:max-w-[48rem] max-w-[40rem] mx-auto space-y-6" id="module-content">
+		<div className="mt-10 mb-20 xs:max-w-[48rem] max-w-[40rem] mx-auto flex flex-col space-y-4" id="module-content">
 			{contentBlocks?.map((block) => (
 				<div
 					className="w-full h-full"

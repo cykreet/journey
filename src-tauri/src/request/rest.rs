@@ -44,7 +44,7 @@ pub struct RestCourseSectionModuleContent {
 	#[serde(rename = "filepath")]
 	pub file_path: String,
 	#[serde(rename = "fileurl")]
-	pub file_url: String,
+	pub file_url: Option<String>,
 	#[serde(rename = "timemodified")]
 	pub time_modified: u64,
 	#[serde(rename = "mimetype")]

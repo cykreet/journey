@@ -1,5 +1,6 @@
 use std::{ops::Not, vec};
 
+use anyhow::{Context, anyhow};
 use entity::section_module::SectionModuleType;
 use migration::Expr;
 use sea_orm::{
@@ -113,19 +114,29 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 					&client,
 					host.as_str().unwrap(),
 					ws_token.as_str().unwrap(),
-				)?;
+				)
+				.map_err(|e| anyhow!("Failed to create request: {}", e))?;
 
-				let response = client.execute(request).await?;
+				let response = client
+					.execute(request)
+					.await
+					.with_context(|| "Failed to execute request")?;
 				if response.status().is_success().not() {
-					return Err(format!("Failed to fetch course sections with id: {course_id}").into());
+					return Err(anyhow!(
+						"Failed to fetch course sections with id: {course_id}"
+					));
 				}
 
-				let body = response.text().await?;
+				let body = response
+					.text()
+					.await
+					.with_context(|| "Failed to read response body")?;
 				if body.contains("errorcode") {
-					return Err(format!("Could not get course: {}", body).into());
+					return Err(anyhow!("Could not get course: {}", body).into());
 				}
 
-				let sections_data: Vec<RestCourseSection> = serde_json::from_str(&body)?;
+				let sections_data: Vec<RestCourseSection> =
+					serde_json::from_str(&body).with_context(|| "Failed to parse sections data")?;
 				let state = app_handle.state::<DatabaseState>();
 				let db = &state.0;
 				let txn = db.begin().await?;
@@ -243,27 +254,40 @@ pub async fn get_module_content(
 					&client,
 					store.get(auth_keys::MOODLE_HOST).unwrap().as_str().unwrap(),
 					token,
-				)?;
+				)
+				.map_err(|e| anyhow!("Failed to create request: {}", e))?;
 
-				let response = client.execute(request).await?;
+				let response = client
+					.execute(request)
+					.await
+					.with_context(|| "Failed to execute request")?;
 				if response.status().is_success().not() {
-					return Err(format!("Failed to fetch module content with id: {module_id}").into());
+					return Err(anyhow!(
+						"Failed to fetch module content with id: {module_id}"
+					));
 				}
 
-				let body = response.text().await?;
+				let body = response
+					.text()
+					.await
+					.with_context(|| "Failed to read response body")?;
 				if body.contains("errorcode") {
-					return Err(format!("Could not get module content: {}", body).into());
+					return Err(anyhow!("Could not get module content: {}", body));
 				}
 
-				let sections_data: Vec<RestCourseSection> = serde_json::from_str(&body)?;
+				let sections_data: Vec<RestCourseSection> = serde_json::from_str(&body)
+					.map_err(|e| anyhow!("Failed to parse sections data: {}", e))?;
 				let module = sections_data
 					.into_iter()
 					.flat_map(|section| section.modules)
 					.find(|module| module.id == module_id)
-					.ok_or_else(|| format!("Module with id {} not found", module_id))?;
+					.with_context(|| format!("Module with id {} not found", module_id))?;
 
 				if SUPPORTED_MODULE_TYPES.contains(&module.module_type).not() {
-					return Err(format!("Module type {} is not supported", module.module_type).into());
+					return Err(anyhow!(
+						"Module type {} is not supported",
+						module.module_type
+					));
 				}
 
 				let module_contents = module.contents.unwrap_or_default();
@@ -276,22 +300,32 @@ pub async fn get_module_content(
 					// media content also uses this to refer to the relevant content block.
 					// the "root" content block seems to always have a path of "/", which is usually
 					// included if it doesn't contain any other content
-					let content_id = if content.file_path == "/" {
-						1
-					} else {
-						content.file_path[1..content.file_path.len() - 1].parse::<i32>()?
-					};
 
 					// "books" have an additional structure content object that contains the hierarchy of the contents,
 					// not sure how i wanna handle books, but storing content blocks as they appear in the response is fine for now
+					let content_id = if content.file_path == "/" && content.file_name != "structure" {
+						1
+					} else {
+						if module.module_type == SectionModuleType::Book && content.file_name == "structure" {
+							0
+						} else {
+							content.file_path[1..content.file_path.len() - 1].parse::<i32>()?
+						}
+					};
 
 					// written content is usually in an index.html file. we generally wanna store text content directly, blobs being
 					// stored on the filesystem, with paths stored in the database.
 					if content.file_name == "index.html" {
-						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
+						let file_url = content.file_url.as_ref().with_context(|| {
+							format!("Content with id {} does not have a file URL", content_id)
+						})?;
+						let file_url = format!("{}?forcedownload=1&token={}", file_url, token);
 						let content_response = reqwest::get(file_url).await?;
 						if content_response.status().is_success().not() {
-							return Err(format!("Failed to fetch content for content id: {}", content_id).into());
+							return Err(anyhow!(
+								"Failed to fetch content for content id: {}",
+								content_id
+							));
 						}
 
 						// todo: remove any scripts and stylesheets that are not needed
@@ -338,16 +372,16 @@ pub async fn get_module_content(
 							continue;
 						}
 
-						let file_url = format!("{}?forcedownload=1&token={}", content.file_url, token);
+						let file_url = content.file_url.as_ref().with_context(|| {
+							format!("Content with id {} does not have a file URL", content_id)
+						})?;
+						let file_url = format!("{}?forcedownload=1&token={}", file_url, token);
 						let content_response = reqwest::get(file_url).await?;
 						if content_response.status().is_success().not() {
-							return Err(
-								format!(
-									"Failed to fetch content blob for content id: {}",
-									content_id
-								)
-								.into(),
-							);
+							return Err(anyhow!(
+								"Failed to fetch content blob for content id: {}",
+								content_id
+							));
 						}
 
 						let app_dir = app_handle
@@ -452,7 +486,7 @@ pub async fn get_module_content(
 			})
 		})
 		.await
-		.map_err(|e| format!("{}", e.to_string()))
+		.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -506,7 +540,7 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 					let user_id = store
 						.get(auth_keys::USER_ID)
 						.and_then(|id| id.as_str().and_then(|s| s.parse::<u32>().ok()))
-						.ok_or("Failed to retrieve user id from store")?;
+						.with_context(|| "Failed to retrieve user id from store")?;
 
 					let host = store.get(auth_keys::MOODLE_HOST).unwrap();
 					let ws_token = store.get(auth_keys::WS_TOKEN).unwrap();
@@ -514,19 +548,27 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 						user_id,
 						host.as_str().unwrap(),
 						ws_token.as_str().unwrap(),
-					)?;
+					)
+					.map_err(|e| anyhow!("Failed to create request: {}", e))?;
 
 					let response = client.execute(request).await?;
 					if response.status().is_success().not() {
-						return Err(format!("Could not get user courses: {}", response.text().await?).into());
+						return Err(anyhow!(
+							"Could not get user courses: {}",
+							response.text().await?
+						));
 					}
 
-					let body = response.text().await?;
+					let body = response
+						.text()
+						.await
+						.with_context(|| "Failed to read response body")?;
 					if body.contains("errorcode") {
-						return Err(format!("Could not get user courses: {}", body).into());
+						return Err(anyhow!("Could not get user courses: {}", body));
 					}
 
-					let course_data = serde_json::from_str::<Vec<RestCourse>>(&body)?;
+					let course_data = serde_json::from_str::<Vec<RestCourse>>(&body)
+						.with_context(|| "Failed to parse course data")?;
 					let courses = course_data
 						.into_iter()
 						.map(|course| entity::course::ActiveModel {
