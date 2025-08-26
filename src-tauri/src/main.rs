@@ -20,7 +20,7 @@ use crate::request::course::{
 	CourseSectionWithModules, CourseWithSections, SUPPORTED_MODULE_TYPES, SUPPORTED_RESOURCE_TYPES,
 	get_content_blobs, get_course, get_module_content, get_user_courses,
 };
-use crate::sync_task::SyncState;
+use crate::sync_task::{ModuleErrorEvent, SyncState};
 
 const MIN_WINDOW_WIDTH: f64 = 300.0;
 const MIN_WINDOW_HEIGHT: f64 = 300.0;
@@ -41,7 +41,7 @@ pub fn main() {
 			get_module_content,
 			get_content_blobs
 		])
-		.events(collect_events![MoodleAuthEvent])
+		.events(collect_events![MoodleAuthEvent, ModuleErrorEvent])
 		.typ::<Course>()
 		.typ::<CourseSection>()
 		.typ::<CourseSectionItem>()

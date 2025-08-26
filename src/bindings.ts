@@ -51,8 +51,10 @@ async getContentBlobs(courseId: number, moduleId: number) : Promise<Result<Conte
 
 
 export const events = __makeEvents__<{
+moduleErrorEvent: ModuleErrorEvent,
 moodleAuthEvent: MoodleAuthEvent
 }>({
+moduleErrorEvent: "module-error-event",
 moodleAuthEvent: "moodle-auth-event"
 })
 
@@ -70,6 +72,7 @@ export type CourseSection = { id: number; courseId: number; name: string }
 export type CourseSectionWithModules = { section: CourseSection; modules: SectionModule[] }
 export type CourseWithSections = { course: Course; sections: CourseSectionWithModules[] }
 export type ModuleContent = { id: number; moduleId: number; updatedAt: bigint; rank: number; content: string }
+export type ModuleErrorEvent = string
 export type MoodleAuthEvent = AuthStatus
 export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; mimeTypes?: string[]; moduleType: SectionModuleType }
 export type SectionModuleType = "page" | "book" | "forum" | "resource" | "url" | "Unknown"

@@ -1,13 +1,31 @@
 use std::{collections::HashMap, future::Future, pin::Pin};
 
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use specta::Type;
 use tauri::{AppHandle, Manager, async_runtime::Mutex};
+use tauri_specta::Event;
 
 use crate::database::DatabaseState;
 
 #[derive(Default)]
 pub struct SyncState {
 	pub tasks: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Type, Debug, Clone, Event)]
+pub struct ModuleErrorEvent(String);
+
+#[macro_export]
+macro_rules! sync_return {
+	($self:expr, $db_state:expr) => {
+		$self
+			.return_fn
+			.take()
+			.map(|f| f($db_state))
+			.unwrap_or_else(|| panic!("Sync task {} did not return a function", $self.sync_id))
+			.await
+	};
 }
 
 // 3 minutes
@@ -69,12 +87,7 @@ where
 		if sync_entry.is_some() {
 			let last_sync: u64 = sync_entry.unwrap().as_u64().unwrap();
 			if now - last_sync < SYNC_TIMEOUT {
-				return self
-					.return_fn
-					.take()
-					.map(|f| f(db_state))
-					.unwrap_or_else(|| panic!("Sync task {} did not return a function", self.sync_id))
-					.await;
+				return sync_return!(self, db_state);
 			}
 		}
 
@@ -86,15 +99,13 @@ where
 			}
 			Err(e) => {
 				log::error!("Error in sync task {}: {}", self.sync_id, e);
-				return Err(e.into());
+				ModuleErrorEvent(e.to_string())
+					.emit(&self.app_handle)
+					.unwrap();
+				return sync_return!(self, db_state);
 			}
 		};
 
-		self
-			.return_fn
-			.take()
-			.map(|f| f(db_state))
-			.unwrap_or_else(|| panic!("Sync task {} did not return a function", self.sync_id))
-			.await
+		sync_return!(self, db_state)
 	}
 }

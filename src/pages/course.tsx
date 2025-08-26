@@ -94,7 +94,7 @@ const CourseModule = ({
 	courseId,
 	moduleId,
 }: { selectedModuleName?: string; courseData: CourseWithSections; courseId: number; moduleId: number }) => {
-	const { data, error, loading } = useCommand(commands.getModuleContent, courseId, moduleId);
+	const { data, error: _, loading } = useCommand(commands.getModuleContent, courseId, moduleId);
 	const { data: contentBlobs, loading: blobsLoading } = useCommand(commands.getContentBlobs, courseId, moduleId);
 	const moduleContext = useContext(ModuleContext);
 
@@ -109,14 +109,12 @@ const CourseModule = ({
 		if (moduleContext == null) return;
 		moduleContext.setName(selectedModuleName);
 		moduleContext.setLoading((loading || blobsLoading) ?? true);
-		moduleContext.setError(error);
 
 		return () => {
 			moduleContext.setName(undefined);
 			moduleContext.setLoading(false);
-			moduleContext.setError(undefined);
 		};
-	}, [moduleContext, selectedModuleName, loading, blobsLoading, error]);
+	}, [moduleContext, selectedModuleName, loading, blobsLoading]);
 
 	if ((moduleData == null || moduleContent == null) && loading == false) return;
 	if (moduleData == null || moduleContent == null) return;

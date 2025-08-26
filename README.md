@@ -18,6 +18,6 @@
 - [ ] pdf viewer controls for zooming/scaling
 - [ ] theming support (dark mode, custom themes)
 - [ ] better error handling and reporting
-- [ ] more robust syncing, probably means switching to an async system with the use of webview events or tauri's channels
+- [ ] more robust syncing, probably means switching to a parallel solution with the use of webview events or tauri's channels
 - [ ] indexed module content for course-wide searching
 - [ ] support for forum modules

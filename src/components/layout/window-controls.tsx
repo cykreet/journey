@@ -1,5 +1,5 @@
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import IconLayoutSidebar from "~icons/tabler/layout-sidebar-filled";
 import IconMinus from "~icons/tabler/minus";
 import IconSquare from "~icons/tabler/square";
@@ -7,6 +7,7 @@ import IconX from "~icons/tabler/x";
 import { Button, ButtonStyle } from "../button";
 import { SidebarContext } from "./sidebar-context";
 import { ModuleContext } from "./module-context";
+import { events } from "../../bindings";
 
 export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -15,6 +16,16 @@ export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 	const [moduleLoading, setModuleLoading] = useState(false);
 
 	const statusColour = moduleLoading ? "bg-wood-100" : moduleError ? "bg-rose-500" : "bg-goo";
+
+	useEffect(() => {
+		const unlistenPromise = events.moduleErrorEvent.listen((event) => {
+			setModuleError(event.payload);
+		});
+
+		return () => {
+			unlistenPromise.then((unlisten) => unlisten());
+		};
+	}, []);
 
 	return (
 		<div className="w-full h-full flex flex-col">
@@ -71,10 +82,8 @@ export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 						value={{
 							name: moduleName,
 							loading: moduleLoading,
-							error: moduleError,
 							setName: setModuleName,
 							setLoading: setModuleLoading,
-							setError: setModuleError,
 						}}
 					>
 						{children}
