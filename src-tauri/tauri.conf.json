@@ -35,7 +35,7 @@
 	"plugins": {
 		"updater": {
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVGMDIzMjI3MUFDOEI1MDkKUldRSnRjZ2FKeklDNzhyWWtZVWtTeHF6RHdRMGRyT2NtdDJzVmJyUXYzZ3daM1ZJbjVTMUlxelcK",
-			"endpoints": ["https://github.com/cykreet/journey/releases/download/latest/latest.json"]
+			"endpoints": ["https://github.com/cykreet/journey/releases/latest/download/latest.json"]
 		}
 	}
 }
