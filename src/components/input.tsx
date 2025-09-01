@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import type { HTMLInputTypeAttribute } from "react";
 
-export const Input = ({
+export function Input({
 	type = "text",
 	label,
 	disabled,
@@ -19,7 +19,7 @@ export const Input = ({
 	disabled?: boolean;
 	onChange?: (value: string) => void;
 	onEnter?: () => void;
-}) => {
+}) {
 	const containerClasses = clsx("flex flex-col space-y-1", className);
 	const classNames = clsx("border border-ivory/10 rounded-md p-1.5 focus-within:border-goo", {
 		"cursor-not-allowed opacity-50": disabled,
@@ -41,4 +41,4 @@ export const Input = ({
 			</div>
 		</div>
 	);
-};
+}

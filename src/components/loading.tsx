@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import IconChartCircles from "~icons/tabler/chart-circles";
 
-export const Loading = ({ iconClassName, decorated }: { iconClassName?: string; decorated?: boolean }) => {
+export function Loading({ iconClassName, decorated }: { iconClassName?: string; decorated?: boolean }) {
 	const classes = clsx("animate-spin", decorated && "text-goo", iconClassName);
 
 	return (
@@ -9,4 +9,4 @@ export const Loading = ({ iconClassName, decorated }: { iconClassName?: string; 
 			<IconChartCircles className={classes} />
 		</div>
 	);
-};
+}

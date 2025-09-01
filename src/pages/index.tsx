@@ -10,7 +10,7 @@ import { Input } from "../components/input";
 import { Link } from "../components/link";
 import { AuthStatus } from "../types";
 
-export const Index = () => {
+export function Index() {
 	const [showDialog, setShowDialog] = useState(false);
 	const [authStatus, setAuthStatus] = useState<AuthStatusPayload>();
 	const [loading, setLoading] = useState(false);
@@ -122,4 +122,4 @@ export const Index = () => {
 			</div>
 		</>
 	);
-};
+}

@@ -1,7 +1,7 @@
 import { type LinkProps, Link as WouterLink } from "wouter";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-export const Link = (props: LinkProps) => {
+export function Link(props: LinkProps) {
 	if (props.href?.startsWith("http")) {
 		return (
 			<WouterLink
@@ -17,4 +17,4 @@ export const Link = (props: LinkProps) => {
 	}
 
 	return <WouterLink {...props} />;
-};
+}

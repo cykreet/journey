@@ -22,7 +22,7 @@ export interface MenuSidebarProps {
 	sidebarNotice?: string;
 }
 
-export const MenuSidebar = ({ sections, loading, header, sidebarNotice: notice }: MenuSidebarProps) => {
+export function MenuSidebar({ sections, loading, header, sidebarNotice: notice }: MenuSidebarProps) {
 	const [location] = useLocation();
 
 	return (
@@ -72,4 +72,4 @@ export const MenuSidebar = ({ sections, loading, header, sidebarNotice: notice }
 			</div>
 		</aside>
 	);
-};
+}

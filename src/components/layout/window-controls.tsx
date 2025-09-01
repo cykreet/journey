@@ -9,7 +9,7 @@ import { SidebarContext } from "./sidebar-context";
 import { ModuleContext } from "./module-context";
 import { events } from "../../bindings";
 
-export const WindowControls = ({ children }: { children: React.ReactNode }) => {
+export function WindowControls({ children }: { children: React.ReactNode }) {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [moduleName, setModuleName] = useState<string | undefined>(undefined);
 	const [moduleError, setModuleError] = useState<string | undefined>(undefined);
@@ -92,4 +92,4 @@ export const WindowControls = ({ children }: { children: React.ReactNode }) => {
 			</div>
 		</div>
 	);
-};
+}

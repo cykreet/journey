@@ -5,7 +5,7 @@ import { commands } from "../../bindings";
 import { useCommand } from "../../hooks/useCommand";
 import { SidebarIcon, SidebarIconStyle } from "./sidebar-icon";
 
-export const Sidebar = () => {
+export function Sidebar() {
 	const [location] = useLocation();
 	const courses = useCommand(commands.getUserCourses);
 
@@ -36,4 +36,4 @@ export const Sidebar = () => {
 			</div>
 		</div>
 	);
-};
+}

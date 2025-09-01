@@ -7,7 +7,7 @@ import { Sidebar } from "./sidebar";
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 
-export const GlobalLayout = ({ children }: { children: React.ReactNode }) => {
+export function GlobalLayout({ children }: { children: React.ReactNode }) {
 	const [isCourseRoute] = useRoute("/course/:id?/:page?");
 	const [version, setVersion] = useState("");
 
@@ -43,4 +43,4 @@ export const GlobalLayout = ({ children }: { children: React.ReactNode }) => {
 			</div>
 		</>
 	);
-};
+}

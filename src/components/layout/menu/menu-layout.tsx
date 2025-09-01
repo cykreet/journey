@@ -12,7 +12,7 @@ export interface MenuLayoutProps {
 	sidebarNotice?: string;
 }
 
-export const MenuLayout = ({ key, children, header, loading, sidebarSections, sidebarNotice }: MenuLayoutProps) => {
+export function MenuLayout({ key, children, header, loading, sidebarSections, sidebarNotice }: MenuLayoutProps) {
 	const sidebarCollapsed = useContext(SidebarContext);
 
 	return (
@@ -33,4 +33,4 @@ export const MenuLayout = ({ key, children, header, loading, sidebarSections, si
 			</Panel>
 		</PanelGroup>
 	);
-};
+}

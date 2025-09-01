@@ -6,13 +6,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
 import IconJourney from "~icons/journey/journey?color=red";
-import {
-	type ContentBlob,
-	type CourseWithSections,
-	type ModuleContent,
-	type SectionModule,
-	commands,
-} from "../bindings";
+import { type ContentBlob, type CourseWithSections, type ModuleContent, commands } from "../bindings";
 import { MenuLayout } from "../components/layout/menu/menu-layout";
 import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
 import { ModuleContext } from "../components/layout/module-context";
@@ -29,7 +23,7 @@ const pdfOptions = {
 	standardFontDataUrl: "/standard_fonts/",
 };
 
-export const Course = () => {
+export function Course() {
 	const [match, params] = useRoute("/course/:courseId/:moduleId?");
 	const { data: courseData, error: _error, loading } = useCommand(commands.getCourse, Number(params?.courseId));
 
@@ -87,13 +81,13 @@ export const Course = () => {
 			)}
 		</MenuLayout>
 	);
-};
+}
 
-const CourseModule = ({
+function CourseModule({
 	selectedModuleName,
 	courseId,
 	moduleId,
-}: { selectedModuleName?: string; courseData: CourseWithSections; courseId: number; moduleId: number }) => {
+}: { selectedModuleName?: string; courseData: CourseWithSections; courseId: number; moduleId: number }) {
 	const { data, error: _, loading } = useCommand(commands.getModuleContent, courseId, moduleId);
 	const { data: contentBlobs, loading: blobsLoading } = useCommand(commands.getContentBlobs, courseId, moduleId);
 	const moduleContext = useContext(ModuleContext);
@@ -120,22 +114,24 @@ const CourseModule = ({
 	if (moduleData == null || moduleContent == null) return;
 
 	if (moduleData.moduleType === SectionModuleType.Resource) {
-		return <ResourceContentBlock moduleData={moduleData} contentBlobs={contentBlobs} />;
+		return <ResourceContentBlock contentBlobs={contentBlobs} moduleContent={moduleContent} />;
 	}
 
 	if (moduleData.moduleType === SectionModuleType.Page || moduleData.moduleType === SectionModuleType.Book) {
 		return <PageContentBlock moduleContent={moduleContent} contentBlobs={contentBlobs} />;
 	}
-};
+}
 
-const ResourceContentBlock = ({
+function ResourceContentBlock({
 	contentBlobs,
-	// moduleData,
-}: { contentBlobs?: ContentBlob[]; moduleData: SectionModule }) => {
-	// todo: move these to a separate component
+	moduleContent,
+}: { contentBlobs?: ContentBlob[]; moduleContent: ModuleContent[] }) {
 	const [pageCount, setPageCount] = useState<number | undefined>(undefined);
 
-	const contentBlob = contentBlobs?.[0];
+	// in the case of resource modules, the module content is set to the name of the relevant file.
+	// sometimes multiple blobs can exist for a resource module, if a previous one were replaced, so we should use the
+	// the file currently referred to in the module content
+	const contentBlob = contentBlobs?.find((blob) => blob.name === moduleContent[0]?.content);
 	const localPath = convertFileSrc(contentBlob?.path ?? "");
 
 	if (contentBlob?.mimeType === "application/pdf") {
@@ -155,12 +151,12 @@ const ResourceContentBlock = ({
 			</Document>
 		);
 	}
-};
+}
 
-const PageContentBlock = ({
+function PageContentBlock({
 	moduleContent,
 	contentBlobs,
-}: { moduleContent: ModuleContent[]; contentBlobs?: ContentBlob[] }) => {
+}: { moduleContent: ModuleContent[]; contentBlobs?: ContentBlob[] }) {
 	const [contentBlocks, setContentBlocks] = useState<{ id: number; content: string }[] | undefined>(undefined);
 
 	useEffect(() => {
@@ -223,4 +219,4 @@ const PageContentBlock = ({
 			))}
 		</div>
 	);
-};
+}

@@ -6,7 +6,7 @@ export const SidebarIconStyle = {
 	WOOD: "bg-wood-300 text-wood",
 };
 
-export const SidebarIcon = ({
+export function SidebarIcon({
 	title,
 	children,
 	className,
@@ -22,7 +22,7 @@ export const SidebarIcon = ({
 	icon?: React.ReactNode;
 	onClick?: (event: React.MouseEvent) => void;
 	iconStyle?: (typeof SidebarIconStyle)[keyof typeof SidebarIconStyle];
-}) => {
+}) {
 	const classes = clsx(
 		"select-none cursor-pointer rounded-md w-8 h-8 font-bold text-center content-center",
 		className,
@@ -35,4 +35,4 @@ export const SidebarIcon = ({
 			{icon || children}
 		</div>
 	);
-};
+}

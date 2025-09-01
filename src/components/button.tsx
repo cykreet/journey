@@ -8,7 +8,7 @@ export enum ButtonStyle {
 	GHOST = "bg-transparent text-wood hover:bg-ivory/5",
 }
 
-export const Button = ({
+export function Button({
 	buttonStyle = ButtonStyle.PRIMARY,
 	onClick,
 	disabled,
@@ -22,7 +22,7 @@ export const Button = ({
 	loading?: boolean;
 	className?: string;
 	children: React.ReactNode;
-}) => {
+}) {
 	const classes = clsx(
 		"rounded-md px-1 py-1",
 		buttonStyle,
@@ -36,4 +36,4 @@ export const Button = ({
 			{(loading && <Loading />) || children}
 		</button>
 	);
-};
+}

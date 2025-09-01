@@ -7,10 +7,10 @@ export interface Command<T> {
 	loading?: boolean;
 }
 
-export const useCommand = <T>(
+export function useCommand<T>(
 	command: (...args: any) => Promise<Result<T, unknown>>,
 	...args: Parameters<typeof command>
-): Command<T> => {
+): Command<T> {
 	const [commandValue, setCommandValue] = useState<T | undefined>();
 	const [error, setError] = useState<string | undefined>();
 	const [loading, setLoading] = useState(true);
@@ -60,4 +60,4 @@ export const useCommand = <T>(
 	}, [command, ...args]);
 
 	return { data: commandValue, error, loading };
-};
+}

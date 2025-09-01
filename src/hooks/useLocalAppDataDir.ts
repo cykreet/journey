@@ -1,7 +1,7 @@
 import { appLocalDataDir } from "@tauri-apps/api/path";
 import { useState, useEffect } from "react";
 
-export const useLocalAppDataDir = () => {
+export function useLocalAppDataDir() {
 	const [localAppDataDir, setLocalAppDataDir] = useState<string>("");
 
 	useEffect(() => {
@@ -12,4 +12,4 @@ export const useLocalAppDataDir = () => {
 	}, []);
 
 	return localAppDataDir;
-};
+}

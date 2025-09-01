@@ -3,12 +3,12 @@ import IconCircleCheckFilled from "~icons/tabler/circle-check-filled";
 import IconCircleXFilled from "~icons/tabler/circle-x-filled";
 import { Card } from "./card";
 
-export const Dialog = ({
+export function Dialog({
 	open,
 	loading,
 	children,
 	title,
-}: { open?: boolean; title?: string; loading?: boolean; children: React.ReactNode }) => {
+}: { open?: boolean; title?: string; loading?: boolean; children: React.ReactNode }) {
 	if (open === false) return null;
 
 	return (
@@ -23,7 +23,7 @@ export const Dialog = ({
 			</Card>
 		</div>
 	);
-};
+}
 
 export const DialogBodyFailed = ({ message }: { message: string }) => {
 	return (
