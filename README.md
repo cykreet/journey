@@ -3,9 +3,10 @@
 
 <h2><img border=0 src=".github/images/journey.png" alt="logo" align="left" width="36px"> journey</h2>
 
+<img border=0 src=".github/images/preview.png" alt="my totally legit course" align="center" width="100%">
+
 <span>Modern desktop client for Moodle course content, prioritises quick access to material and local control. Journey uses Moodle's mobile auth flow for longer-lived sessions, which means your instance **must** have support enabled for the mobile app. The current features include:</span>
 
-<img border=0 src=".github/images/preview.png" alt="my totally legit course" align="center" width="100%">
 
 - Mobile auth flow for longer lived sessions (permanent tokens)
 - Automatic content synchronisation -- module content is stored locally and retrieved/updated in the background to reflect most up to date version of documents
