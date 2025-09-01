@@ -11,6 +11,8 @@
 - Aggressive frontend caching on top of local database, meaning virtually no wait times navigating to already visited pages, this allows us to update module content while a cached version is still displayed, then once done, the content is replaced with the newer version. (this is not yet the best implementation, as right now it only returns the content if cached in the webview, otherwise it waits for content to sync before retrieving content from the database, which can lead to unecessary loading times when the content may have already been stored to the database but not yet cached in the webview)
 - Ergonomic navigation allows switching between courses and modules within the same layout
 
+<img border=0 src=".github/images/preview.png" alt="my totally legit course" align="center" width="800px">
+
 # planned
 
 - [ ] course sidebar customisability, change order, colour and icon to more easily identify certain courses
