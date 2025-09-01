@@ -64,6 +64,16 @@ jobs:
           echo MATRIX_ARGS="--config '{\"version\":\"$(echo ${{ github.ref_name }} | sed 's/^v\([0-9][0-9.]*\).*/\1/')\"}' ${{ matrix.args }}" >> $GITHUB_ENV
           echo RELEASE_NAME="Journey${{ contains(github.ref_name, 'beta') && ' Beta ' || ' ' }}v__VERSION__" >> $GITHUB_ENV
 
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: -vv --latest --strip header
+        env:
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}
+        
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -74,5 +84,6 @@ jobs:
           # ideally future betas should not try to auto-update to latest versions
           tagName: v__VERSION__-${{ contains(github.ref_name, 'beta') && 'beta' || 'stable' }}
           releaseName: ${{ env.RELEASE_NAME }}
+          releaseBody: ${{ steps.git-cliff.outputs.content }}
           updaterJsonPreferNsis: true
           args: ${{ env.MATRIX_ARGS }}
