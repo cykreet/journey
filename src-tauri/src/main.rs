@@ -150,10 +150,14 @@ pub fn main() {
 				event: WindowEvent::Focused(true),
 				..
 			} => {
-				let handle = app_handle.clone();
-				tauri::async_runtime::spawn(async move {
-					update(handle).await.ok();
-				});
+				#[cfg(not(debug_assertions))]
+				{
+					let handle = app_handle.clone();
+					// todo: maybe just have an auto update config option
+					tauri::async_runtime::spawn(async move {
+						update(handle).await.ok();
+					});
+				}
 			}
 			RunEvent::WindowEvent {
 				event: WindowEvent::CloseRequested { .. },

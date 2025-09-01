@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { SidebarItem } from "./sidebar-item";
 import type { ForwardRefExoticComponent, ReactNode, SVGProps } from "react";
 import IconInfo from "~icons/tabler/info-circle-filled";
+import { Skeleton } from "../../skeleton";
 
 export interface MenuSidebarSection {
 	id?: number;
@@ -33,15 +34,10 @@ export function MenuSidebar({ sections, loading, header, sidebarNotice: notice }
 			<div className="flex flex-col space-y-3 p-2 overflow-y-scroll h-full min-w-full">
 				{(loading && (
 					<div className="flex flex-col space-y-2">
-						{/* todo: move to skeleton components */}
-						<SidebarItem loading />
-						<SidebarItem loading />
-						<SidebarItem loading />
-						<SidebarItem loading />
-						<SidebarItem loading />
-						<SidebarItem loading />
-						<SidebarItem loading />
-						<SidebarItem loading />
+						{[...Array(10)].map((_, i) => (
+							// biome-ignore lint/correctness/useJsxKeyInIterable: <explanation>
+							<Skeleton className="h-6  rounded-md" style={{ width: `${Math.min(Math.random() * 130, 100)}%` }} />
+						))}
 					</div>
 				)) || (
 					<>

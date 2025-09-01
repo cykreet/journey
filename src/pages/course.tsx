@@ -136,19 +136,21 @@ function ResourceContentBlock({
 
 	if (contentBlob?.mimeType === "application/pdf") {
 		return (
-			<Document
-				file={localPath}
-				options={pdfOptions}
-				className="items-center w-full h-full justify-center flex flex-col space-y-4"
-				loading={<IconJourney className="w-14 h-14 mt-10 text-wood-300" />}
-				onLoadSuccess={({ numPages }) => setPageCount(numPages)}
-				externalLinkRel="noreferrer noopener"
-				externalLinkTarget="_blank"
-			>
-				{[...Array(pageCount).keys()].map((index) => (
-					<Page renderAnnotationLayer renderTextLayer key={index + 1} pageNumber={index + 1} width={800} />
-				))}
-			</Document>
+			<div className="w-full h-full">
+				<Document
+					file={localPath}
+					options={pdfOptions}
+					className="items-center w-full h-full justify-center flex flex-col space-y-4"
+					loading={<IconJourney className="w-14 h-14 mt-10 text-wood-300" />}
+					onLoadSuccess={({ numPages }) => setPageCount(numPages)}
+					externalLinkRel="noreferrer noopener"
+					externalLinkTarget="_blank"
+				>
+					{[...Array(pageCount).keys()].map((index) => (
+						<Page renderAnnotationLayer renderTextLayer key={index + 1} pageNumber={index + 1} width={1000} />
+					))}
+				</Document>
+			</div>
 		);
 	}
 }
