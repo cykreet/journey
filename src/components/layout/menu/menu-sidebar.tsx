@@ -34,7 +34,7 @@ export function MenuSidebar({ sections, loading, header, sidebarNotice: notice }
 			<div className="flex flex-col space-y-3 p-2 overflow-y-scroll h-full min-w-full">
 				{(loading && (
 					<div className="flex flex-col space-y-2">
-						{[...Array(10)].map((_, i) => (
+						{[...Array(10)].map((_) => (
 							// biome-ignore lint/correctness/useJsxKeyInIterable: <explanation>
 							<Skeleton className="h-6  rounded-md" style={{ width: `${Math.min(Math.random() * 130, 100)}%` }} />
 						))}
