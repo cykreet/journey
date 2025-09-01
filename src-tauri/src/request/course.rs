@@ -357,6 +357,16 @@ pub async fn get_module_content(
 					}
 
 					if let Some(mime_type) = &content.mime_type {
+						let app_dir = app_handle
+							.path()
+							.app_local_data_dir()
+							.expect("failed to get app data dir");
+						let path = app_dir
+							.join("content_blobs")
+							.join(module_id.to_string())
+							.join(&content.file_name);
+
+						let file_exists = std::fs::exists(&path)?;
 						let existing_blob = entity::ContentBlob::find()
 							.filter(
 								Condition::all()
@@ -365,8 +375,10 @@ pub async fn get_module_content(
 							)
 							.one(&txn)
 							.await?;
-						// check time modified on content to avoid downloading the same file again if it hasn't changed
-						if let Some(blob) = existing_blob
+
+						// if the file exists on disk and hasn't been updated, we shouldn't need to download it again
+						if file_exists
+							&& let Some(blob) = existing_blob
 							&& content.time_modified as i64 > blob.updated_at
 						{
 							continue;
@@ -384,14 +396,6 @@ pub async fn get_module_content(
 							));
 						}
 
-						let app_dir = app_handle
-							.path()
-							.app_local_data_dir()
-							.expect("failed to get app data dir");
-						let path = app_dir
-							.join("content_blobs")
-							.join(module_id.to_string())
-							.join(&content.file_name);
 						let blob = content_response.bytes().await?;
 						std::fs::create_dir_all(app_dir.join("content_blobs").join(module_id.to_string()))?;
 						std::fs::write(&path, blob)?;
