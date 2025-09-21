@@ -36,7 +36,7 @@ export function Button({
 		"rounded-md px-1 py-1 flex flex-inline gap-2 items-center",
 		buttonStyle,
 		!(disabled || loading) && "cursor-pointer",
-		(disabled || loading) && "cursor-not-allowed bg-steel text-steel-300 hover:bg-steel",
+		(disabled || loading) && "cursor-not-allowed bg-steel-700 text-steel-300 hover:bg-steel-700",
 		className,
 	);
 
@@ -48,7 +48,7 @@ export function Button({
 			onClick={() => !disabled && !loading && onClick && onClick()}
 		>
 			{(loading && <Loading />) || (Icon && <Icon className="w-4 h-4" />)}
-			<span className="flex-grow text-ellipsis overflow-hidden">{children}</span>
+			{children && <span className="flex-grow text-ellipsis overflow-hidden">{children}</span>}
 		</button>
 	);
 }

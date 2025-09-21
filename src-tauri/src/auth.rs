@@ -35,12 +35,12 @@ impl Default for AuthStatus {
 
 #[derive(Default, Deserialize)]
 struct RestSiteInfo {
-	#[serde(rename = "sitename")]
-	pub site_name: String,
+	// #[serde(rename = "sitename")]
+	// pub site_name: String,
 	#[serde(rename = "userid")]
 	pub user_id: u32,
-	#[serde(rename = "fullname")]
-	pub full_name: String,
+	// #[serde(rename = "fullname")]
+	// pub full_name: String,
 }
 
 // auth state represents the current status of the auth process, i.e whether
@@ -228,7 +228,7 @@ pub async fn get_user_name(app: AppHandle) -> Result<String, String> {
 		}
 	}
 
-	let user_id = serde_json::from_value(
+	let user_id: String = serde_json::from_value(
 		store
 			.get(auth_keys::USER_ID)
 			.with_context(|| "user id not found")
@@ -236,6 +236,7 @@ pub async fn get_user_name(app: AppHandle) -> Result<String, String> {
 			.clone(),
 	)
 	.map_err(|e| e.to_string())?;
+	let user_id = user_id.parse::<u32>().map_err(|e| e.to_string())?;
 
 	let client = reqwest::Client::new();
 	let token = store

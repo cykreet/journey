@@ -34,7 +34,7 @@ export function Index() {
 				</div>
 			</div>
 			<div className="flex flex-col w-full max-w-1/4">
-				<span className="text-sm text-steel-100">Enter the host of your Moodle instance here.</span>
+				<span className="text-sm">Enter the host of your Moodle instance here.</span>
 				<div className="flex flex-row space-x-2 w-full items-center">
 					<Input
 						className="w-full"
@@ -54,7 +54,7 @@ export function Index() {
 						placeholder="https://moodle.example.com"
 					/>
 					<Button onClick={() => openLoginWindow(host)} loading={loading} disabled={!host[0]} className="px-4">
-						<IconArrowRight className="w-6 h-6" />
+						{loading == false && <IconArrowRight className="w-6 h-6" />}
 					</Button>
 				</div>
 			</div>
