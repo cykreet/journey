@@ -21,7 +21,7 @@ export function Input({
 	onEnter?: () => void;
 }) {
 	const containerClasses = clsx("flex flex-col space-y-1", className);
-	const classNames = clsx("border border-ivory/10 rounded-md p-1.5 focus-within:border-goo", {
+	const classNames = clsx("border border-ivory/10 rounded-md p-1.5 focus-within:border-accent", {
 		"cursor-not-allowed opacity-50": disabled,
 	});
 

@@ -13,8 +13,41 @@ pub struct SyncState {
 	pub tasks: HashMap<String, serde_json::Value>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct SyncError {
+	pub code: Option<String>,
+	pub message: String,
+}
+
+impl From<anyhow::Error> for SyncError {
+	fn from(error: anyhow::Error) -> Self {
+		SyncError {
+			code: None,
+			message: error.to_string(),
+		}
+	}
+}
+
+impl From<&dyn std::error::Error> for SyncError {
+	fn from(error: &dyn std::error::Error) -> Self {
+		SyncError {
+			code: None,
+			message: error.to_string(),
+		}
+	}
+}
+
+impl From<String> for SyncError {
+	fn from(message: String) -> Self {
+		SyncError {
+			code: None,
+			message,
+		}
+	}
+}
+
 #[derive(Serialize, Deserialize, Type, Debug, Clone, Event)]
-pub struct ModuleErrorEvent(String);
+pub struct SyncErrorEvent(SyncError);
 
 #[macro_export]
 macro_rules! sync_return {
@@ -72,7 +105,7 @@ where
 
 	pub async fn sync_state<F>(mut self, task_fn: F) -> Result<T, Box<dyn std::error::Error>>
 	where
-		F: FnOnce(AppHandle) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>
+		F: FnOnce(AppHandle) -> Pin<Box<dyn Future<Output = anyhow::Result<(), SyncError>> + Send>>
 			+ Send
 			+ 'static,
 	{
@@ -98,10 +131,13 @@ where
 					.insert(self.sync_id.to_string(), json!(now));
 			}
 			Err(e) => {
-				log::error!("Error in sync task {}: {}", self.sync_id, e);
-				ModuleErrorEvent(e.to_string())
-					.emit(&self.app_handle)
-					.unwrap();
+				log::error!(
+					"Error in sync task {}: (code: {:?}) {}",
+					self.sync_id,
+					e.code.as_deref().unwrap_or("unknown"),
+					e.message
+				);
+				SyncErrorEvent(e).emit(&self.app_handle).unwrap();
 				return sync_return!(self, db_state);
 			}
 		};

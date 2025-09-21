@@ -9,6 +9,14 @@ pub mod rest_functions {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct RestErrorBody {
+	pub exception: String,
+	#[serde(rename = "errorcode")]
+	pub error_code: String,
+	pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct RestCourseSection {
 	pub id: i32,
 	pub name: String,
@@ -103,9 +111,10 @@ fn build_rest_request(
 }
 
 pub fn get_user_courses_request(
-	user_id: u32,
-	host: &str,
+	client: &reqwest::Client,
 	ws_token: &str,
+	host: &str,
+	user_id: u32,
 ) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
 	let form = &mut std::collections::HashMap::new();
 	form.insert("userid".to_string(), user_id.to_string());
@@ -114,14 +123,14 @@ pub fn get_user_courses_request(
 		rest_functions::GET_USER_COURSES.to_string(),
 	);
 
-	build_rest_request(&reqwest::Client::new(), host, ws_token, form)
+	build_rest_request(&client, host, ws_token, form)
 }
 
 pub fn get_course_sections_request(
-	course_id: i32,
 	client: &reqwest::Client,
 	host: &str,
 	ws_token: &str,
+	course_id: i32,
 ) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
 	let form = &mut std::collections::HashMap::new();
 	form.insert(
@@ -141,11 +150,11 @@ pub fn get_course_sections_request(
 /// this endpoint returns data similar to the course content endpoint (used for sections and modules),
 /// but it also includes only the specified module's content
 pub fn get_sections_with_model_content(
-	course_id: i32,
-	module_id: i32,
 	client: &reqwest::Client,
 	host: &str,
 	ws_token: &str,
+	course_id: i32,
+	module_id: i32,
 ) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
 	let form = &mut std::collections::HashMap::new();
 	form.insert(

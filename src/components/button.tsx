@@ -1,11 +1,24 @@
 import clsx from "clsx";
 import { Loading } from "./loading";
+import type { ForwardRefExoticComponent, SVGProps } from "react";
 
 export enum ButtonStyle {
-	PRIMARY = "bg-goo text-wood hover:bg-goo/80",
-	IVORY = "bg-ivory/10 border border-ivory/20 hover:bg-ivory/5",
-	BORDERLESS = "bg-ivory/10 hover:bg-ivory/5",
-	GHOST = "bg-transparent text-wood hover:bg-ivory/5",
+	PRIMARY = "bg-accent text-steel hover:bg-accent/80",
+	// IVORY = "bg-ivory/10 border border-ivory/20 hover:bg-ivory/5",
+	BORDERLESS = "bg-steel hover:bg-steel-600",
+	GHOST = "bg-transparent hover:bg-steel",
+	CRIMSON = "bg-crimson/25 text-crimson hover:bg-crimson/40",
+}
+
+export interface ButtonProps {
+	buttonStyle?: ButtonStyle;
+	onClick?: () => void;
+	disabled?: boolean;
+	loading?: boolean;
+	className?: string;
+	icon?: ForwardRefExoticComponent<SVGProps<SVGSVGElement>>;
+	title?: string;
+	children: React.ReactNode;
 }
 
 export function Button({
@@ -15,25 +28,27 @@ export function Button({
 	loading,
 	className,
 	children,
-}: {
-	buttonStyle?: ButtonStyle;
-	onClick: () => void;
-	disabled?: boolean;
-	loading?: boolean;
-	className?: string;
-	children: React.ReactNode;
-}) {
+	title,
+	icon,
+}: ButtonProps) {
+	const Icon = icon;
 	const classes = clsx(
-		"rounded-md px-1 py-1",
+		"rounded-md px-1 py-1 flex flex-inline gap-2 items-center",
 		buttonStyle,
-		!disabled && "cursor-pointer",
-		disabled && "cursor-not-allowed bg-ivory/10 border border-ivory/10 hover:bg-ivory/10 text-ivory/20!",
+		!(disabled || loading) && "cursor-pointer",
+		(disabled || loading) && "cursor-not-allowed bg-steel text-steel-300 hover:bg-steel",
 		className,
 	);
 
 	return (
-		<button type="button" className={classes} onClick={() => !disabled && onClick()}>
-			{(loading && <Loading />) || children}
+		<button
+			title={title}
+			type="button"
+			className={classes}
+			onClick={() => !disabled && !loading && onClick && onClick()}
+		>
+			{(loading && <Loading />) || (Icon && <Icon className="w-4 h-4" />)}
+			<span className="flex-grow text-ellipsis overflow-hidden">{children}</span>
 		</button>
 	);
 }

@@ -1,3 +1,8 @@
 import { createContext } from "react";
 
-export const SidebarContext = createContext(false);
+export interface SidebarContext {
+	collapsed: boolean;
+	setCollapsed: (collapsed: boolean) => void;
+}
+
+export const SidebarContext = createContext<SidebarContext | null>(null);

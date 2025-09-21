@@ -23,7 +23,7 @@ use crate::{
 	auth::auth_keys,
 	database::DatabaseState,
 	request::rest::{self, RestCourse, RestCourseSection},
-	sync_task::SyncTask,
+	sync_task::{SyncError, SyncTask},
 };
 
 #[derive(Serialize, Deserialize, Type)]
@@ -106,40 +106,49 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 		.sync_state(move |app_handle| {
 			Box::pin(async move {
 				let store = app_handle.store("store.json").unwrap();
-				let client = reqwest::Client::new();
 				let host = store.get(auth_keys::MOODLE_HOST).unwrap();
+				let client = reqwest::Client::new();
 				let ws_token = store.get(auth_keys::WS_TOKEN).unwrap();
 				let request = rest::get_course_sections_request(
-					course_id,
 					&client,
 					host.as_str().unwrap(),
 					ws_token.as_str().unwrap(),
+					course_id,
 				)
 				.map_err(|e| anyhow!("Failed to create request: {}", e))?;
 
 				let response = client
 					.execute(request)
 					.await
-					.with_context(|| "Failed to execute request")?;
+					.map_err(|e| anyhow!("Failed to execute request for course sections: {}", e))?;
 				if response.status().is_success().not() {
-					return Err(anyhow!(
+					return Err(SyncError::from(anyhow!(
 						"Failed to fetch course sections with id: {course_id}"
-					));
+					)));
 				}
 
 				let body = response
 					.text()
 					.await
-					.with_context(|| "Failed to read response body")?;
+					.map_err(|e| anyhow!("Failed to read response body: {}", e))?;
 				if body.contains("errorcode") {
-					return Err(anyhow!("Could not get course: {}", body).into());
+					let error_body: rest::RestErrorBody =
+						serde_json::from_str(&body).with_context(|| "Failed to parse error body")?;
+
+					return Err(SyncError {
+						code: Some(error_body.error_code),
+						message: error_body.message,
+					});
 				}
 
 				let sections_data: Vec<RestCourseSection> =
 					serde_json::from_str(&body).with_context(|| "Failed to parse sections data")?;
 				let state = app_handle.state::<DatabaseState>();
 				let db = &state.0;
-				let txn = db.begin().await?;
+				let txn = db
+					.begin()
+					.await
+					.map_err(|e| anyhow!("Failed to begin transaction for course sections: {}", e))?;
 
 				entity::Course::update_many()
 					// module_count helps us keep track of the number of modules in this course
@@ -155,7 +164,8 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 					)
 					.filter(entity::course::Column::Id.eq(course_id))
 					.exec(&txn)
-					.await?;
+					.await
+					.map_err(|e| anyhow!("Failed to update course module count: {}", e))?;
 
 				for section in sections_data {
 					let section_entity = entity::course_section::ActiveModel {
@@ -174,7 +184,8 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 								.to_owned(),
 						)
 						.exec(&txn)
-						.await?;
+						.await
+						.map_err(|e| anyhow!("Failed to insert course section {}: {}", section.id, e))?;
 
 					for module in section.modules {
 						if !SUPPORTED_MODULE_TYPES.contains(&module.module_type) {
@@ -187,9 +198,15 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 							section_id: ActiveValue::Set(section.id),
 							module_type: ActiveValue::Set(module.module_type),
 							mime_types: match module.contents_info {
-								Some(contents_info) => {
-									ActiveValue::Set(Some(serde_json::to_value(contents_info.mime_types)?))
-								}
+								Some(contents_info) => ActiveValue::Set(Some(
+									serde_json::to_value(contents_info.mime_types).map_err(|e| {
+										anyhow!(
+											"Failed to serialize mime types for module {}: {}",
+											module.id,
+											e
+										)
+									})?,
+								)),
 								None => ActiveValue::NotSet,
 							},
 							updated_at: ActiveValue::Set(Utc::now().timestamp()),
@@ -206,11 +223,15 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 									.to_owned(),
 							)
 							.exec(&txn)
-							.await?;
+							.await
+							.map_err(|e| anyhow!("Failed to insert section module {}: {}", module.id, e))?;
 					}
 				}
 
-				txn.commit().await?;
+				txn
+					.commit()
+					.await
+					.map_err(|e| anyhow!("Failed to commit transaction for course sections: {}", e))?;
 				Ok(())
 			})
 		})
@@ -249,22 +270,22 @@ pub async fn get_module_content(
 				let token = store.get(auth_keys::WS_TOKEN).unwrap();
 				let token = token.as_str().unwrap();
 				let request = rest::get_sections_with_model_content(
-					course_id,
-					module_id,
 					&client,
 					store.get(auth_keys::MOODLE_HOST).unwrap().as_str().unwrap(),
 					token,
+					course_id,
+					module_id,
 				)
 				.map_err(|e| anyhow!("Failed to create request: {}", e))?;
 
 				let response = client
 					.execute(request)
 					.await
-					.with_context(|| "Failed to execute request")?;
+					.map_err(|e| anyhow!("Failed to execute request for module content: {}", e))?;
 				if response.status().is_success().not() {
-					return Err(anyhow!(
+					return Err(SyncError::from(anyhow!(
 						"Failed to fetch module content with id: {module_id}"
-					));
+					)));
 				}
 
 				let body = response
@@ -272,7 +293,17 @@ pub async fn get_module_content(
 					.await
 					.with_context(|| "Failed to read response body")?;
 				if body.contains("errorcode") {
-					return Err(anyhow!("Could not get module content: {}", body));
+					let error_body: rest::RestErrorBody =
+						serde_json::from_str(&body).with_context(|| "Failed to parse error body")?;
+
+					println!(
+						"course id {course_id}, module id {module_id}, error: {:?}",
+						error_body
+					);
+					return Err(SyncError {
+						code: Some(error_body.error_code),
+						message: error_body.message,
+					});
 				}
 
 				let sections_data: Vec<RestCourseSection> = serde_json::from_str(&body)
@@ -284,16 +315,19 @@ pub async fn get_module_content(
 					.with_context(|| format!("Module with id {} not found", module_id))?;
 
 				if SUPPORTED_MODULE_TYPES.contains(&module.module_type).not() {
-					return Err(anyhow!(
+					return Err(SyncError::from(anyhow!(
 						"Module type {} is not supported",
 						module.module_type
-					));
+					)));
 				}
 
 				let module_contents = module.contents.unwrap_or_default();
 				let state = app_handle.state::<DatabaseState>();
 				let db = &state.0;
-				let txn = db.begin().await?;
+				let txn = db
+					.begin()
+					.await
+					.map_err(|e| anyhow!("Failed to begin transaction for module content: {}", e))?;
 
 				for (i, content) in module_contents.iter().enumerate() {
 					// ids of the content blocks stored in file path as "/id/"
@@ -309,28 +343,70 @@ pub async fn get_module_content(
 						if module.module_type == SectionModuleType::Book && content.file_name == "structure" {
 							0
 						} else {
-							content.file_path[1..content.file_path.len() - 1].parse::<i32>()?
+							content.file_path[1..content.file_path.len() - 1]
+								.parse::<i32>()
+								.map_err(|e| {
+									anyhow!(
+										"Failed to parse content id from file path {}: {}",
+										content.file_path,
+										e
+									)
+								})?
 						}
 					};
 
 					// written content is usually in an index.html file. we generally wanna store text content directly, blobs being
 					// stored on the filesystem, with paths stored in the database.
 					if content.file_name == "index.html" {
+						let existing_content = entity::ModuleContent::find()
+							.filter(
+								Condition::all()
+									.add(entity::module_content::Column::ModuleId.eq(module_id))
+									.add(entity::module_content::Column::Id.eq(content_id)),
+							)
+							.one(&txn)
+							.await
+							.map_err(|e| {
+								anyhow!(
+									"Failed to query existing module content {}: {}",
+									content.file_name,
+									e
+								)
+							})?;
+
+						if let Some(module_content) = existing_content
+							&& content.time_modified as i64 > module_content.updated_at
+						{
+							continue;
+						}
+
 						let file_url = content.file_url.as_ref().with_context(|| {
 							format!("Content with id {} does not have a file URL", content_id)
 						})?;
 						let file_url = format!("{}?forcedownload=1&token={}", file_url, token);
-						let content_response = reqwest::get(file_url).await?;
+						let content_response = reqwest::get(file_url).await.map_err(|e| {
+							anyhow!(
+								"Failed to fetch content for content id {}: {}",
+								content_id,
+								e
+							)
+						})?;
 						if content_response.status().is_success().not() {
-							return Err(anyhow!(
+							return Err(SyncError::from(anyhow!(
 								"Failed to fetch content for content id: {}",
 								content_id
-							));
+							)));
 						}
 
 						// todo: remove any scripts and stylesheets that are not needed
 						// html content is usually also pretty ugly with empty tags, etc.
-						let content_text = content_response.text().await?;
+						let content_text = content_response.text().await.map_err(|e| {
+							anyhow!(
+								"Failed to read content response for content id {}: {}",
+								content_id,
+								e
+							)
+						})?;
 						let module_content = entity::module_content::ActiveModel {
 							id: ActiveValue::Set(content_id),
 							module_id: ActiveValue::Set(module_id),
@@ -353,7 +429,8 @@ pub async fn get_module_content(
 								.to_owned(),
 							)
 							.exec(&txn)
-							.await?;
+							.await
+							.map_err(|e| anyhow!("Failed to insert module content: {}", e))?;
 					}
 
 					if let Some(mime_type) = &content.mime_type {
@@ -366,7 +443,13 @@ pub async fn get_module_content(
 							.join(module_id.to_string())
 							.join(&content.file_name);
 
-						let file_exists = std::fs::exists(&path)?;
+						let file_exists = std::fs::exists(&path).map_err(|e| {
+							anyhow!(
+								"Failed to check if content blob file exists {}: {}",
+								path.to_str().unwrap_or_default(),
+								e
+							)
+						})?;
 						let existing_blob = entity::ContentBlob::find()
 							.filter(
 								Condition::all()
@@ -374,7 +457,14 @@ pub async fn get_module_content(
 									.add(entity::content_blob::Column::Name.eq(&content.file_name)),
 							)
 							.one(&txn)
-							.await?;
+							.await
+							.map_err(|e| {
+								anyhow!(
+									"Failed to query existing content blob {}: {}",
+									content.file_name,
+									e
+								)
+							})?;
 
 						// if the file exists on disk and hasn't been updated, we shouldn't need to download it again
 						if file_exists
@@ -388,17 +478,42 @@ pub async fn get_module_content(
 							format!("Content with id {} does not have a file URL", content_id)
 						})?;
 						let file_url = format!("{}?forcedownload=1&token={}", file_url, token);
-						let content_response = reqwest::get(file_url).await?;
+						let content_response = reqwest::get(file_url).await.map_err(|e| {
+							anyhow!(
+								"Failed to fetch content blob for content id {}: {}",
+								content_id,
+								e
+							)
+						})?;
 						if content_response.status().is_success().not() {
-							return Err(anyhow!(
+							return Err(SyncError::from(anyhow!(
 								"Failed to fetch content blob for content id: {}",
 								content_id
-							));
+							)));
 						}
 
-						let blob = content_response.bytes().await?;
-						std::fs::create_dir_all(app_dir.join("content_blobs").join(module_id.to_string()))?;
-						std::fs::write(&path, blob)?;
+						let blob = content_response.bytes().await.map_err(|e| {
+							anyhow!(
+								"Failed to read content blob response for content id {}: {}",
+								content_id,
+								e
+							)
+						})?;
+						std::fs::create_dir_all(app_dir.join("content_blobs").join(module_id.to_string()))
+							.map_err(|e| {
+								anyhow!(
+									"Failed to create content blob directory {}: {}",
+									path.to_str().unwrap_or_default(),
+									e
+								)
+							})?;
+						std::fs::write(&path, blob).map_err(|e| {
+							anyhow!(
+								"Failed to write content blob to file {}: {}",
+								path.to_str().unwrap_or_default(),
+								e
+							)
+						})?;
 
 						let content_blob = entity::content_blob::ActiveModel {
 							name: ActiveValue::Set(content.file_name.clone()),
@@ -429,7 +544,8 @@ pub async fn get_module_content(
 								.to_owned(),
 							)
 							.exec(&txn)
-							.await?;
+							.await
+							.map_err(|e| anyhow!("Failed to insert content blob: {}", e))?;
 
 						// modules with the resource type usually (from what i've seen) only consist of a single content blob (pdf)
 						// and so we set the module content to the content blob path
@@ -458,7 +574,8 @@ pub async fn get_module_content(
 									.to_owned(),
 								)
 								.exec(&txn)
-								.await?;
+								.await
+								.map_err(|e| anyhow!("Failed to insert module content: {}", e))?;
 						}
 					}
 				}
@@ -485,7 +602,10 @@ pub async fn get_module_content(
 				// 	}
 				// }
 
-				txn.commit().await?;
+				txn
+					.commit()
+					.await
+					.map_err(|e| anyhow!("Failed to commit transaction: {}", e))?;
 				Ok(())
 			})
 		})
@@ -532,7 +652,6 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 			let db = state.0.clone();
 			Box::pin(async move {
 				let courses = entity::Course::find().all(&db).await?;
-
 				Ok(courses)
 			})
 		})
@@ -544,23 +663,28 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 					let user_id = store
 						.get(auth_keys::USER_ID)
 						.and_then(|id| id.as_str().and_then(|s| s.parse::<u32>().ok()))
-						.with_context(|| "Failed to retrieve user id from store")?;
+						.with_context(|| "Failed to retrieve user id from store")
+						.map_err(|e| SyncError::from(anyhow!("Failed to get user id: {}", e)))?;
 
 					let host = store.get(auth_keys::MOODLE_HOST).unwrap();
 					let ws_token = store.get(auth_keys::WS_TOKEN).unwrap();
 					let request = rest::get_user_courses_request(
-						user_id,
-						host.as_str().unwrap(),
+						&client,
 						ws_token.as_str().unwrap(),
+						host.as_str().unwrap(),
+						user_id,
 					)
-					.map_err(|e| anyhow!("Failed to create request: {}", e))?;
+					.map_err(|e| SyncError::from(anyhow!("Failed to create request: {}", e)))?;
 
-					let response = client.execute(request).await?;
+					let response = client
+						.execute(request)
+						.await
+						.map_err(|e| SyncError::from(anyhow!("Failed to execute request: {}", e)))?;
 					if response.status().is_success().not() {
-						return Err(anyhow!(
+						return Err(SyncError::from(anyhow!(
 							"Could not get user courses: {}",
-							response.text().await?
-						));
+							response.text().await.unwrap_or_default()
+						)));
 					}
 
 					let body = response
@@ -568,7 +692,13 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 						.await
 						.with_context(|| "Failed to read response body")?;
 					if body.contains("errorcode") {
-						return Err(anyhow!("Could not get user courses: {}", body));
+						let error_body: rest::RestErrorBody =
+							serde_json::from_str(&body).with_context(|| "Failed to parse error body")?;
+
+						return Err(SyncError {
+							code: Some(error_body.error_code),
+							message: error_body.message,
+						});
 					}
 
 					let course_data = serde_json::from_str::<Vec<RestCourse>>(&body)
@@ -586,7 +716,10 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 
 					let state = app_handle.state::<DatabaseState>();
 					let db = &state.0;
-					let txn = db.begin().await?;
+					let txn = db
+						.begin()
+						.await
+						.map_err(|e| SyncError::from(anyhow!("Failed to begin transaction: {}", e)))?;
 
 					for course in courses {
 						entity::Course::insert(course)
@@ -601,10 +734,14 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 									.to_owned(),
 							)
 							.exec(&txn)
-							.await?;
+							.await
+							.map_err(|e| SyncError::from(anyhow!("Failed to insert course: {}", e)))?;
 					}
 
-					txn.commit().await?;
+					txn
+						.commit()
+						.await
+						.map_err(|e| SyncError::from(anyhow!("Failed to commit transaction: {}", e)))?;
 					Ok(())
 				}
 			})

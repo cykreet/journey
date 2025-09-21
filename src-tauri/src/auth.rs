@@ -1,3 +1,4 @@
+use anyhow::Context;
 use base64::Engine;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -13,6 +14,7 @@ pub mod auth_keys {
 	pub const WS_TOKEN: &str = "ws_token";
 	pub const PASSPORT: &str = "passport";
 	pub const USER_ID: &str = "user_id";
+	pub const USER_NAME: &str = "user_name";
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -35,6 +37,8 @@ struct RestSiteInfo {
 	pub site_name: String,
 	#[serde(rename = "userid")]
 	pub user_id: u32,
+	#[serde(rename = "fullname")]
+	pub full_name: String,
 }
 
 // auth state represents the current status of the auth process, i.e whether
@@ -187,6 +191,7 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 				// todo: store user data in separate table with data like enrolled courses
 				// probably means we also have to encrypt course data
 				store.set(auth_keys::USER_ID, site_info.user_id.to_string());
+				store.set(auth_keys::USER_NAME, site_info.full_name.to_string());
 				store.set(auth_keys::MOODLE_HOST, host);
 				store.set(auth_keys::WS_TOKEN, token_parts[1]);
 				store.set(auth_keys::PASSPORT, passport);
@@ -210,4 +215,36 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 		.unwrap();
 
 	Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_user_name(app: AppHandle) -> Result<String, String> {
+	let store = app.store("store.json").map_err(|e| e.to_string())?;
+	let user_name = serde_json::from_value(
+		store
+			.get(auth_keys::USER_NAME)
+			.with_context(|| "user name not found")
+			.map_err(|e| e.to_string())?
+			.clone(),
+	)
+	.map_err(|e| e.to_string())?;
+
+	Ok(user_name)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_host(app: AppHandle) -> Result<String, String> {
+	let store = app.store("store.json").map_err(|e| e.to_string())?;
+	let host = serde_json::from_value(
+		store
+			.get(auth_keys::MOODLE_HOST)
+			.with_context(|| "host not found")
+			.map_err(|e| e.to_string())?
+			.clone(),
+	)
+	.map_err(|e| e.to_string())?;
+
+	Ok(host)
 }

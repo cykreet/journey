@@ -6,16 +6,29 @@
 
 @theme {
 	--color-ivory: #fde4d3;
+	--color-ivory-300: #dbc6b8;
+	--color-ivory-400: #bfada1;
+	--color-ivory-600: #877a72;
 
-	--color-wood: #130a01;
-	--color-wood-100: #c9a683;
-	--color-wood-300: #52361a;
-	--color-wood-500: #2e1904;
-	--color-wood-700: #0f0801;
+	--color-steel: #262624;
+	--color-steel-100: #9ea3a7;
+	--color-steel-200: #918d84;
+	--color-steel-300: #6b6863;
+	--color-steel-500: #454340;
+	--color-steel-600: #363432;
+	--color-steel-700: #1f1e1d;
 
 	--color-tan: #f7ae73;
-	--color-mint: #edf341;
-	--color-goo: #c8f113;
+	--color-goo: #7ed857;
+	--color-crimson: #d85757;
+
+	--color-text: var(--color-ivory-300);
+	/* --color-primary: var(--color-); */
+	--color-secondary: orange;
+	--color-accent: var(--color-goo);
+
+	--color-border: var(--color-steel-600);
+	--color-background: var(--color-steel);
 }
 
 *[data-tauri-drag-region] {
@@ -27,9 +40,6 @@
 	font-size: 16px;
 	line-height: 24px;
 	font-weight: 400;
-
-	--color-text: var(--color-ivory);
-	--color-background: var(--color-wood);
 }
 
 html,
@@ -69,7 +79,7 @@ p {
 }
 
 ::-webkit-scrollbar-thumb {
-	@apply bg-wood-300 rounded-[4px] opacity-20;
+	@apply bg-steel-300 rounded-[4px] opacity-20;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -160,7 +170,7 @@ p {
 
 	td,
 	th {
-		border: 1px solid var(--color-wood-300);
+		border: 1px solid var(--color-steel-300);
 		background: none;
 		padding: 8px;
 		text-align: left;
@@ -169,7 +179,7 @@ p {
 	}
 
 	hr {
-		border-top: 1px solid var(--color-wood-300);
+		border-top: 1px solid var(--color-steel-300);
 		margin: 1em 0;
 	}
 }

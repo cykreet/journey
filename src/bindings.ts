@@ -21,6 +21,22 @@ async getUserCourses() : Promise<Result<Course[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getUserName() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_user_name") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getHost() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_host") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getCourse(courseId: number) : Promise<Result<CourseWithSections, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_course", { courseId }) };
@@ -51,17 +67,17 @@ async getContentBlobs(courseId: number, moduleId: number) : Promise<Result<Conte
 
 
 export const events = __makeEvents__<{
-moduleErrorEvent: ModuleErrorEvent,
-moodleAuthEvent: MoodleAuthEvent
+moodleAuthEvent: MoodleAuthEvent,
+syncErrorEvent: SyncErrorEvent
 }>({
-moduleErrorEvent: "module-error-event",
-moodleAuthEvent: "moodle-auth-event"
+moodleAuthEvent: "moodle-auth-event",
+syncErrorEvent: "sync-error-event"
 })
 
 /** user-defined constants **/
 
-export const SUPPORTED_RESOURCE_TYPES = ["application/pdf"] as const;
 export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
+export const SUPPORTED_RESOURCE_TYPES = ["application/pdf"] as const;
 
 /** user-defined types **/
 
@@ -72,10 +88,11 @@ export type CourseSection = { id: number; courseId: number; name: string }
 export type CourseSectionWithModules = { section: CourseSection; modules: SectionModule[] }
 export type CourseWithSections = { course: Course; sections: CourseSectionWithModules[] }
 export type ModuleContent = { id: number; moduleId: number; updatedAt: bigint; rank: number; content: string }
-export type ModuleErrorEvent = string
 export type MoodleAuthEvent = AuthStatus
 export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; mimeTypes?: string[]; moduleType: SectionModuleType }
 export type SectionModuleType = "page" | "book" | "forum" | "resource" | "url" | "Unknown"
+export type SyncError = { code: string | null; message: string }
+export type SyncErrorEvent = SyncError
 
 /** tauri-specta globals **/
 

@@ -1,20 +1,30 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { type ForwardRefExoticComponent, type SVGProps, useCallback, useContext, useEffect, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { useRoute } from "wouter";
 import { navigate } from "wouter/use-browser-location";
 import IconJourney from "~icons/journey/journey?color=red";
+import IconFileText from "~icons/tabler/file-text-filled";
+import IconMessage from "~icons/tabler/message-2";
 import { type ContentBlob, type CourseWithSections, type ModuleContent, commands } from "../bindings";
 import { MenuLayout } from "../components/layout/menu/menu-layout";
-import type { MenuSidebarSection } from "../components/layout/menu/menu-sidebar";
+import type { MenuSidebarItemProps, MenuSidebarSectionProps } from "../components/layout/menu/menu-sidebar";
 import { ModuleContext } from "../components/layout/module-context";
-import { useCommand } from "../hooks/useCommand";
+import { useCommand } from "../hooks/command";
 import { SectionModuleType } from "../types";
 
 const SRC_REGEX = /src="([^"]+)"/g;
 const ANCHOR_REGEX = /<a[^>](.[^>]+)>/g;
+
+const COURSE_TYPE_ICONS: Record<
+	Exclude<SectionModuleType, SectionModuleType.Page | SectionModuleType.Book | SectionModuleType.Unknown>,
+	ForwardRefExoticComponent<SVGProps<SVGSVGElement>>
+> = {
+	[SectionModuleType.Resource]: IconFileText,
+	[SectionModuleType.Forum]: IconMessage,
+};
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 const pdfOptions = {
@@ -43,11 +53,15 @@ export function Course() {
 
 				return {
 					name: courseModule.name,
+					icon:
+						courseModule.moduleType in COURSE_TYPE_ICONS
+							? COURSE_TYPE_ICONS[courseModule.moduleType as keyof typeof COURSE_TYPE_ICONS]
+							: undefined,
 					href: `/course/${params?.courseId}/${courseModule.id}`,
-				};
+				} as MenuSidebarItemProps;
 			}),
 		};
-	}) as MenuSidebarSection[];
+	}) as MenuSidebarSectionProps[];
 
 	useEffect(() => {
 		if (
@@ -141,7 +155,7 @@ function ResourceContentBlock({
 					file={localPath}
 					options={pdfOptions}
 					className="items-center w-full h-full justify-center flex flex-col space-y-4"
-					loading={<IconJourney className="w-14 h-14 mt-10 text-wood-300" />}
+					loading={<IconJourney className="w-14 h-14 mt-10 text-steel-300" />}
 					onLoadSuccess={({ numPages }) => setPageCount(numPages)}
 					externalLinkRel="noreferrer noopener"
 					externalLinkTarget="_blank"
