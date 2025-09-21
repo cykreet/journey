@@ -66,7 +66,7 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 					)}
 				</div>
 				<div data-tauri-drag-region className="flex flex-row items-center h-full justify-end">
-					{userName != null && (
+					{host && (
 						<Dropdown>
 							<Dropdown.Trigger>
 								<Button buttonStyle={ButtonStyle.BORDERLESS} className="relative rounded-md mr-2 flex items-center">
@@ -79,12 +79,10 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 							<Dropdown.Menu>
 								<Dropdown.ItemContainer>
 									<div className="flex flex-col justify-center *:text-ellipsis *:overflow-hidden">
-										<span>{userName}</span>
-										{host && (
-											<span title={host} className="text-xs opacity-50">
-												{new URL(host).hostname}
-											</span>
-										)}
+										{userName && <span>{userName}</span>}
+										<span title={host} className="text-xs opacity-50">
+											{new URL(host).hostname}
+										</span>
 									</div>
 								</Dropdown.ItemContainer>
 								{shouldReauthenticate && (

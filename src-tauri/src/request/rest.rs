@@ -6,6 +6,7 @@ use tauri_plugin_http::reqwest::{self};
 pub mod rest_functions {
 	pub const GET_USER_COURSES: &str = "core_enrol_get_users_courses";
 	pub const GET_COURSE_CONTENT: &str = "core_course_get_contents";
+	pub const GET_USERS_BY_FIELD: &str = "core_user_get_users_by_field";
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,6 +85,13 @@ pub struct RestCourseSectionModuleStructureItem {
 #[derive(Debug, Deserialize)]
 pub struct RestCourse {
 	pub id: i32,
+	#[serde(rename = "fullname")]
+	pub full_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RestUser {
+	pub id: u32,
 	#[serde(rename = "fullname")]
 	pub full_name: String,
 }
@@ -171,4 +179,23 @@ pub fn get_sections_with_model_content(
 	form.insert("options[1][value]".to_string(), module_id.to_string());
 
 	build_rest_request(&client, host, ws_token, form)
+}
+
+pub fn get_users_by_id(
+	client: &reqwest::Client,
+	host: &str,
+	ws_token: &str,
+	ids: Vec<u32>,
+) -> Result<reqwest::Request, Box<dyn std::error::Error>> {
+	let form = &mut std::collections::HashMap::new();
+	form.insert(
+		"wsfunction".to_string(),
+		rest_functions::GET_USERS_BY_FIELD.to_string(),
+	);
+	form.insert("field".to_string(), "id".to_string());
+	for (i, id) in ids.iter().enumerate() {
+		form.insert(format!("values[{i}]"), id.to_string());
+	}
+
+	build_rest_request(client, host, ws_token, form)
 }

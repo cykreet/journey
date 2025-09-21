@@ -9,6 +9,8 @@ use tauri_plugin_store::StoreExt;
 use tauri_specta::Event;
 use tokio::sync::Mutex;
 
+use crate::request::rest::{self, RestUser};
+
 pub mod auth_keys {
 	pub const MOODLE_HOST: &str = "moodle_host";
 	pub const WS_TOKEN: &str = "ws_token";
@@ -191,7 +193,6 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 				// todo: store user data in separate table with data like enrolled courses
 				// probably means we also have to encrypt course data
 				store.set(auth_keys::USER_ID, site_info.user_id.to_string());
-				store.set(auth_keys::USER_NAME, site_info.full_name.to_string());
 				store.set(auth_keys::MOODLE_HOST, host);
 				store.set(auth_keys::WS_TOKEN, token_parts[1]);
 				store.set(auth_keys::PASSPORT, passport);
@@ -221,14 +222,48 @@ pub async fn open_login_window(app: AppHandle, host: &str) -> Result<(), String>
 #[specta::specta]
 pub async fn get_user_name(app: AppHandle) -> Result<String, String> {
 	let store = app.store("store.json").map_err(|e| e.to_string())?;
-	let user_name = serde_json::from_value(
+	if let Some(name) = store.get(auth_keys::USER_NAME) {
+		if let Some(name) = name.as_str() {
+			return Ok(name.to_string());
+		}
+	}
+
+	let user_id = serde_json::from_value(
 		store
-			.get(auth_keys::USER_NAME)
-			.with_context(|| "user name not found")
+			.get(auth_keys::USER_ID)
+			.with_context(|| "user id not found")
 			.map_err(|e| e.to_string())?
 			.clone(),
 	)
 	.map_err(|e| e.to_string())?;
+
+	let client = reqwest::Client::new();
+	let token = store
+		.get(auth_keys::WS_TOKEN)
+		.with_context(|| "ws token not found")
+		.map_err(|e| e.to_string())?;
+	let token = token.as_str().unwrap();
+	let request = rest::get_users_by_id(
+		&client,
+		store.get(auth_keys::MOODLE_HOST).unwrap().as_str().unwrap(),
+		token,
+		vec![user_id],
+	)
+	.map_err(|e| e.to_string())?;
+
+	let response = client.execute(request).await.map_err(|e| e.to_string())?;
+	if response.status().is_success() == false {
+		return Err(format!("failed to fetch user info: {}", response.status()));
+	}
+
+	let body = response.text().await.map_err(|e| e.to_string())?;
+	if body.contains("errorcode") {
+		return Err(format!("error fetching user info: {}", body));
+	}
+
+	let users: Vec<RestUser> = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+	let user_name = users[0].full_name.clone();
+	store.set(auth_keys::USER_NAME, user_name.clone());
 
 	Ok(user_name)
 }
