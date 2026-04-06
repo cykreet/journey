@@ -23,3 +23,4 @@
 - [ ] indexed module content for course-wide searching
 - [ ] support for forum modules
 - [ ] improved book module support, currently just renders the content as a single page, but it would be better to split it up into separate pages for each chapter
+- [ ] macos testing and support, currently only tested on windows, but should be mostly compatible
