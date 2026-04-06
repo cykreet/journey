@@ -68,7 +68,7 @@ fn asset_uri(file_path: &str) -> String {
 	let encoded = urlencoding::encode(file_path);
 	#[cfg(any(target_os = "windows", target_os = "android"))]
 	{
-		format!("tauri://asset.localhost/{}", encoded)
+		format!("http://asset.localhost/{}", encoded)
 	}
 	#[cfg(not(any(target_os = "windows", target_os = "android")))]
 	{

@@ -15,7 +15,7 @@
 # planned (1.0)
 
 - [ ] course sidebar customisability, change order, colour and icon to more easily identify certain courses
-- [ ] latex page content rendering with katex
+- [x] latex page content rendering with katex
 - [ ] pdf viewer controls for zooming/scaling
 - [ ] theming support (dark mode, custom themes)
 - [ ] better error handling and reporting
