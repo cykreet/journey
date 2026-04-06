@@ -2,9 +2,11 @@ import { createContext } from "react";
 import type { SyncError } from "../../bindings";
 
 export interface ModuleContext {
+	id?: number | null;
 	name?: string | null;
 	error?: SyncError | null;
 	loading: boolean;
+	setId: (id?: number) => void;
 	setName: (name?: string) => void;
 	setError: (error?: SyncError) => void;
 	setLoading: (loading: boolean) => void;

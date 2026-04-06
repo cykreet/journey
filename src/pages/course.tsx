@@ -112,6 +112,15 @@ function CourseModule({
 
 	useEffect(() => {
 		if (moduleContext == null) return;
+		moduleContext.setId(moduleId);
+
+		return () => {
+			moduleContext.setId(undefined);
+		};
+	}, [moduleContext, moduleId]);
+
+	useEffect(() => {
+		if (moduleContext == null) return;
 		moduleContext.setName(selectedModuleName);
 		moduleContext.setLoading((loading || blobsLoading) ?? true);
 

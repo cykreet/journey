@@ -19,6 +19,7 @@ import { AuthStatus } from "../../types";
 
 export function WindowControls({ children }: { children: React.ReactNode }) {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [moduleId, setModuleId] = useState<number | undefined>(undefined);
 	const [moduleName, setModuleName] = useState<string | undefined>(undefined);
 	const [syncError, setSyncError] = useState<SyncError | undefined>(undefined);
 	const [moduleLoading, setModuleLoading] = useState(false);
@@ -30,19 +31,18 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 	const shouldReauthenticate =
 		host && loginContext?.authStatus !== AuthStatus.Success && syncError?.code === "invalidtoken";
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	useEffect(() => {
+		setSyncError(undefined);
+	}, [moduleId]);
+
 	useEffect(() => {
 		const errorUnlistenPromise = events.syncErrorEvent.listen((event) => {
 			setSyncError(event.payload);
 		});
-		const authUnlistenPromise = events.moodleAuthEvent.listen((event) => {
-			if (event.payload === AuthStatus.Success) {
-				setSyncError(undefined);
-			}
-		});
 
 		return () => {
 			errorUnlistenPromise.then((unlisten) => unlisten());
-			authUnlistenPromise.then((unlisten) => unlisten());
 		};
 	}, []);
 
@@ -54,6 +54,7 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 						<IconLayoutSidebar className="w-5 h-5" />
 					</Button>
 				</div>
+				<span>{syncError?.message}</span>
 				<div data-tauri-drag-region className="flex justify-center my-auto h-8">
 					{moduleName && (
 						// todo: display module error state on click with a popout or something
@@ -144,9 +145,11 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 				>
 					<ModuleContext.Provider
 						value={{
+							id: moduleId,
 							name: moduleName,
 							loading: moduleLoading,
 							error: syncError,
+							setId: setModuleId,
 							setName: setModuleName,
 							setError: setSyncError,
 							setLoading: setModuleLoading,
