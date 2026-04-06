@@ -27,7 +27,7 @@ export function MenuSidebar({ sections, loading, header, sidebarNotice: notice }
 	const [location] = useLocation();
 
 	return (
-		<aside className="flex bg-steel-700 border-r border-border select-none flex-col h-full min-w-full overflow-hidden">
+		<aside className="flex bg-steel border-r border-border select-none flex-col h-full min-w-full overflow-hidden">
 			<div className="border-b w-full border-border min-h-12 content-center flex items-center">
 				<div className="p-2 font-bold">{header}</div>
 			</div>

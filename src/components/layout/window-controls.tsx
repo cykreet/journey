@@ -26,21 +26,25 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 	const { openLoginWindow, loading: loginLoading } = useLoginWindow();
 	const { userName, host } = useUser();
 
-	const statusColour = moduleLoading ? "bg-steel-100" : syncError ? "bg-crimson" : "bg-accent";
+	const statusColour = moduleLoading ? "bg-steel-100" : syncError != null ? "bg-crimson" : "bg-accent";
 	const shouldReauthenticate =
 		host && loginContext?.authStatus !== AuthStatus.Success && syncError?.code === "invalidtoken";
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
-		const unlistenPromise = events.syncErrorEvent.listen((event) => {
+		const errorUnlistenPromise = events.syncErrorEvent.listen((event) => {
 			setSyncError(event.payload);
+		});
+		const authUnlistenPromise = events.moodleAuthEvent.listen((event) => {
+			if (event.payload === AuthStatus.Success) {
+				setSyncError(undefined);
+			}
 		});
 
 		return () => {
-			setSyncError(undefined);
-			unlistenPromise.then((unlisten) => unlisten());
+			errorUnlistenPromise.then((unlisten) => unlisten());
+			authUnlistenPromise.then((unlisten) => unlisten());
 		};
-	}, [moduleName]);
+	}, []);
 
 	return (
 		<div className="w-full h-full flex flex-col">
