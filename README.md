@@ -12,7 +12,7 @@
 - Ergonomic navigation allows switching between courses and modules within the same layout
 
 
-# planned
+# planned (1.0)
 
 - [ ] course sidebar customisability, change order, colour and icon to more easily identify certain courses
 - [ ] latex page content rendering with katex
@@ -22,3 +22,4 @@
 - [ ] more robust syncing, probably means switching to a parallel solution with the use of webview events or tauri's channels
 - [ ] indexed module content for course-wide searching
 - [ ] support for forum modules
+- [ ] improved book module support, currently just renders the content as a single page, but it would be better to split it up into separate pages for each chapter
