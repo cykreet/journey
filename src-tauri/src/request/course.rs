@@ -1,8 +1,16 @@
-use std::{ops::Not, vec};
+use std::{
+	collections::HashMap,
+	ops::Not,
+	sync::{Arc, Mutex, OnceLock},
+	vec,
+};
 
 use anyhow::{Context, anyhow};
 use entity::section_module::SectionModuleType;
+use katex::{KatexContext, Settings as KatexSettings, render_to_string};
+use lol_html::{HtmlRewriter, Settings, element};
 use migration::Expr;
+use regex::Regex;
 use sea_orm::{
 	ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait, sea_query,
 };
@@ -26,6 +34,12 @@ use crate::{
 	sync_task::{SyncError, SyncTask},
 };
 
+static KATEX_CONTEXT: OnceLock<KatexContext> = OnceLock::new();
+static KATEX_DISPLAY_SETTINGS: OnceLock<Mutex<KatexSettings>> = OnceLock::new();
+static KATEX_INLINE_SETTINGS: OnceLock<Mutex<KatexSettings>> = OnceLock::new();
+static KATEX_DISPLAY_RE: OnceLock<Regex> = OnceLock::new();
+static KATEX_INLINE_RE: OnceLock<Regex> = OnceLock::new();
+
 #[derive(Serialize, Deserialize, Type)]
 pub struct CourseWithSections {
 	pub course: Course,
@@ -47,6 +61,84 @@ pub const SUPPORTED_MODULE_TYPES: [SectionModuleType; 3] = [
 
 // supported mime types relevant to actual module content and not embedded content like images
 pub const SUPPORTED_RESOURCE_TYPES: [&str; 1] = ["application/pdf"];
+
+// waiting for rust equivalent of convertFileSrc()
+// https://github.com/tauri-apps/tauri/issues/12022
+fn asset_uri(file_path: &str) -> String {
+	let encoded = urlencoding::encode(file_path);
+	#[cfg(any(target_os = "windows", target_os = "android"))]
+	{
+		format!("tauri://asset.localhost/{}", encoded)
+	}
+	#[cfg(not(any(target_os = "windows", target_os = "android")))]
+	{
+		format!("asset://localhost/{}", encoded)
+	}
+}
+
+fn normalise_math_expr(raw: &str) -> String {
+	let mut expr = html_escape::decode_html_entities(raw).to_string();
+	expr = expr
+		.replace("<br>", "\n")
+		.replace("<br/>", "\n")
+		.replace("<br />", "\n");
+	expr
+}
+
+fn replace_katex_segments(
+	input: &str,
+	re: &Regex,
+	ctx: &KatexContext,
+	settings: &KatexSettings,
+) -> anyhow::Result<String> {
+	let mut out = String::with_capacity(input.len());
+	let mut last = 0;
+
+	for caps in re.captures_iter(input) {
+		let matched = caps.get(0).ok_or_else(|| anyhow!("Missing match"))?;
+		out.push_str(&input[last..matched.start()]);
+
+		let expr_raw = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+		let expr = normalise_math_expr(expr_raw);
+		match render_to_string(ctx, &expr, settings) {
+			Ok(rendered) => out.push_str(&rendered),
+			Err(_) => out.push_str(matched.as_str()),
+		};
+
+		last = matched.end();
+	}
+
+	out.push_str(&input[last..]);
+	Ok(out)
+}
+
+fn render_katex_in_html(html: &str) -> anyhow::Result<String> {
+	let ctx = KATEX_CONTEXT.get_or_init(KatexContext::default);
+	let display_settings = KATEX_DISPLAY_SETTINGS.get_or_init(|| {
+		let mut settings = KatexSettings::default();
+		settings.display_mode = true;
+		settings.throw_on_error = false;
+		Mutex::new(settings)
+	});
+	let inline_settings = KATEX_INLINE_SETTINGS.get_or_init(|| {
+		let mut settings = KatexSettings::default();
+		settings.throw_on_error = false;
+		Mutex::new(settings)
+	});
+	let display_re = KATEX_DISPLAY_RE.get_or_init(|| Regex::new(r"(?s)\\\[(.*?)\\\]").unwrap());
+	let inline_re = KATEX_INLINE_RE.get_or_init(|| Regex::new(r"(?s)\\\((.*?)\\\)").unwrap());
+
+	let display_guard = display_settings
+		.lock()
+		.map_err(|_| anyhow!("Failed to lock KaTeX display settings"))?;
+	let inline_guard = inline_settings
+		.lock()
+		.map_err(|_| anyhow!("Failed to lock KaTeX inline settings"))?;
+
+	let html = replace_katex_segments(html, display_re, ctx, &display_guard)?;
+	let html = replace_katex_segments(&html, inline_re, ctx, &inline_guard)?;
+	Ok(html)
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -260,7 +352,109 @@ pub async fn get_module_content(
 					return Err(format!("Module with id {} not found", module_id).into());
 				}
 
-				Ok(module_with_content[0].clone())
+				let blobs = entity::ContentBlob::find()
+					.filter(Condition::all().add(entity::content_blob::Column::ModuleId.eq(module_id)))
+					.all(&db)
+					.await
+					.map_err(|e| anyhow!("Failed to query existing content blob: {}", e))?;
+
+				// get content blocks -> rewrite each block (rewriter.write) -> pass rewritten blocks back(?)
+				// maintain id/content fields
+
+				let blob_map = blobs
+					.iter()
+					.map(|b| (b.name.clone(), b.path.clone()))
+					.collect::<HashMap<_, _>>();
+
+				let (module, contents) = module_with_content
+					.into_iter()
+					.next()
+					.ok_or_else(|| format!("Module with id {} not found", module_id))?;
+
+				if module.module_type != SectionModuleType::Page
+					&& module.module_type != SectionModuleType::Book
+				{
+					return Ok((module, contents));
+				}
+
+				// rewriting module content involves a few steps to adapt the html a bit for proper display
+				// and content functionality
+				let rewritten_contents =
+					tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<ModuleContent>> {
+						let mut rewritten = Vec::with_capacity(contents.len());
+						for mut block in contents {
+							let out = Arc::new(Mutex::new(Vec::new()));
+							let out_sink = Arc::clone(&out);
+							let mut rewriter = HtmlRewriter::new(
+								Settings {
+									element_content_handlers: vec![
+										// 1. set "src" attributes to appropriate local path, when pointing to local assets
+										// "image.png" gets translated to asset://localhost/path/to/image.png
+										element!("img[src]", |el| {
+											if let Some(src) = el.get_attribute("src") {
+												if src.contains("://") || src.starts_with("data:") {
+													return Ok(());
+												}
+
+												let decoded = urlencoding::decode(&src)
+													.unwrap_or_else(|_| std::borrow::Cow::Owned(src.to_string()));
+												let file_name = decoded.split("?").next().unwrap_or("");
+
+												if let Some(local_path) = blob_map.get(file_name) {
+													let asset_src = asset_uri(local_path);
+													el.set_attribute("src", &asset_src)?;
+												}
+											}
+
+											Ok(())
+										}),
+										// 2. set "target" to _blank on external anchors, this ensures external links open in the browser
+										// and won't try to navigate within the webview itself
+										element!("a[href]", |el| {
+											if let Some(src) = el.get_attribute("src") {
+												if src.starts_with("http").not() {
+													return Ok(());
+												}
+
+												el.set_attribute("target", "_blank")?;
+												el.set_attribute("rel", "noreferrer")?;
+											}
+
+											Ok(())
+										}),
+									],
+									..Settings::default()
+								},
+								move |c: &[u8]| {
+									if let Ok(mut buffer) = out_sink.lock() {
+										buffer.extend_from_slice(c);
+									}
+								},
+							);
+
+							// 3. render latex expressions with katex
+							// todo: this can be a little intense on latex-heavy pages (slow initial renders, probably because in some cases, we're
+							// collapsing huge book modules into a single page, oops). we could cache these somewhere or initially render
+							// the html and incrementally update the content
+							let katex_html =
+								render_katex_in_html(&block.content).unwrap_or_else(|_| block.content.clone());
+							rewriter.write(katex_html.as_bytes())?;
+							rewriter.end()?;
+
+							let out = Arc::try_unwrap(out)
+								.map_err(|_| anyhow!("Failed to unwrap output buffer"))?
+								.into_inner()
+								.map_err(|_| anyhow!("Failed to lock output buffer"))?;
+							block.content = String::from_utf8(out)?;
+							rewritten.push(block);
+						}
+
+						Ok(rewritten)
+					})
+					.await
+					.map_err(|e| e.to_string())??;
+
+				Ok((module, rewritten_contents))
 			})
 		})
 		.sync_state(move |app_handle| {
@@ -450,6 +644,7 @@ pub async fn get_module_content(
 								e
 							)
 						})?;
+
 						let existing_blob = entity::ContentBlob::find()
 							.filter(
 								Condition::all()

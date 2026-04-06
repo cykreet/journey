@@ -1,7 +1,14 @@
 @import "tailwindcss";
+
+/* 
 @font-face {
 	font-family: "Archivo";
 	src: url("/fonts/Archivo.ttf");
+} */
+
+@font-face {
+	font-family: "Host Grotesk";
+	src: url("/fonts/HostGrotesk.ttf");
 }
 
 @theme {
@@ -27,9 +34,9 @@
 	--color-accent: var(--color-goo);
 
 	--color-border: var(--color-steel-600);
-	--color-background: var(--color-steel);
+	--color-background: var(--color-steel-700);
 
-	--font-family: "Archivo", sans-serif;
+	--font-family: "Host Grotesk", sans-serif;
 }
 
 *[data-tauri-drag-region] {
@@ -114,10 +121,10 @@ p {
 #module-content {
 	* {
 		margin-top: 0.5em;
-		/* i've seen some pretty styling choices from a few modules */
+		/* i've seen some pretty questionable styling choices from a few modules */
 		/* so we enforce some consistent styling here, ideally we clean the html */
 		/* a little more in the future */
-		font-family: var(--font-family) !important;
+		/* font-family: var(--font-family) !important; */
 		color: var(--color-text) !important;
 		background: none !important;
 	}
@@ -127,8 +134,12 @@ p {
 	}
 
 	a {
-		color: var(--color-tan);
+		color: var(--color-tan) !important;
 		text-decoration: none;
+	}
+
+	a:hover {
+		color: var(--color-ivory) !important;
 	}
 
 	img {

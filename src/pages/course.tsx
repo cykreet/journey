@@ -1,5 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { type ForwardRefExoticComponent, type SVGProps, useCallback, useContext, useEffect, useState } from "react";
+import { type ForwardRefExoticComponent, type SVGProps, useContext, useEffect, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -14,9 +14,6 @@ import type { MenuSidebarItemProps, MenuSidebarSectionProps } from "../component
 import { ModuleContext } from "../components/layout/module-context";
 import { useCommand } from "../hooks/command";
 import { SectionModuleType } from "../types";
-
-const SRC_REGEX = /src="([^"]+)"/g;
-const ANCHOR_REGEX = /<a[^>](.[^>]+)>/g;
 
 const COURSE_TYPE_ICONS: Record<
 	Exclude<SectionModuleType, SectionModuleType.Page | SectionModuleType.Book | SectionModuleType.Unknown>,
@@ -127,12 +124,13 @@ function CourseModule({
 	if ((moduleData == null || moduleContent == null) && loading == false) return;
 	if (moduleData == null || moduleContent == null) return;
 
+	// todo: improved support for book module types, don't just render as a single page
 	if (moduleData.moduleType === SectionModuleType.Resource) {
 		return <ResourceContentBlock contentBlobs={contentBlobs} moduleContent={moduleContent} />;
 	}
 
 	if (moduleData.moduleType === SectionModuleType.Page || moduleData.moduleType === SectionModuleType.Book) {
-		return <PageContentBlock moduleContent={moduleContent} contentBlobs={contentBlobs} />;
+		return <PageContentBlock moduleContent={moduleContent} />;
 	}
 }
 
@@ -169,63 +167,10 @@ function ResourceContentBlock({
 	}
 }
 
-function PageContentBlock({
-	moduleContent,
-	contentBlobs,
-}: { moduleContent: ModuleContent[]; contentBlobs?: ContentBlob[] }) {
-	const [contentBlocks, setContentBlocks] = useState<{ id: number; content: string }[] | undefined>(undefined);
-
-	useEffect(() => {
-		const parseContent = async () => {
-			const parsedContent = moduleContent.map((content) => {
-				// todo: compile latex expressions using something like katex
-				let contentHtml = replaceSrc(contentBlobs ?? [], content.content);
-				contentHtml = fixAnchors(contentHtml);
-				return { id: content.id, content: contentHtml };
-			});
-
-			setContentBlocks(parsedContent);
-		};
-
-		parseContent();
-
-		return () => {
-			setContentBlocks(undefined);
-		};
-	}, [contentBlobs, moduleContent]);
-
-	const replaceSrc = useCallback((blobs: ContentBlob[], html: string) => {
-		const matches = Array.from(html.matchAll(SRC_REGEX));
-		let replacedHtml = html;
-
-		for (const match of matches) {
-			const srcPath = match[1];
-			if (srcPath.startsWith("http://") || srcPath.startsWith("https://") || srcPath.startsWith("data:")) continue;
-			const filePath = blobs.find((blob) => decodeURI(srcPath).includes(blob.name))?.path;
-			if (filePath == null) continue;
-
-			const localPath = convertFileSrc(filePath);
-			replacedHtml = replacedHtml.replace(match[0], `src="${localPath}"`);
-		}
-
-		return replacedHtml;
-	}, []);
-
-	const fixAnchors = useCallback((html: string) => {
-		const matches = Array.from(html.matchAll(ANCHOR_REGEX));
-		let replacedHtml = html;
-
-		for (const match of matches) {
-			if (match[1].includes("target=")) continue;
-			replacedHtml = replacedHtml.replace(match[1], `${match[1]} target="_blank" rel="noreferrer"`);
-		}
-
-		return replacedHtml;
-	}, []);
-
+function PageContentBlock({ moduleContent }: { moduleContent: ModuleContent[] }) {
 	return (
 		<div className="mt-10 mb-20 xs:max-w-[48rem] max-w-[40rem] mx-auto flex flex-col space-y-4" id="module-content">
-			{contentBlocks?.map((block) => (
+			{moduleContent?.map((block) => (
 				<div
 					className="w-full h-full"
 					key={block.id}
