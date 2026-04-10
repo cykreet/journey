@@ -13,9 +13,11 @@ pub struct SyncState {
 	pub tasks: HashMap<String, serde_json::Value>,
 }
 
+// todo: sync errors probably shouldn't be exclusive to modules, but im lazy
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct SyncError {
 	pub code: Option<String>,
+	pub module_id: Option<i32>,
 	pub message: String,
 }
 
@@ -23,6 +25,7 @@ impl From<anyhow::Error> for SyncError {
 	fn from(error: anyhow::Error) -> Self {
 		SyncError {
 			code: None,
+			module_id: None,
 			message: error.to_string(),
 		}
 	}
@@ -32,6 +35,7 @@ impl From<&dyn std::error::Error> for SyncError {
 	fn from(error: &dyn std::error::Error) -> Self {
 		SyncError {
 			code: None,
+			module_id: None,
 			message: error.to_string(),
 		}
 	}
@@ -41,6 +45,7 @@ impl From<String> for SyncError {
 	fn from(message: String) -> Self {
 		SyncError {
 			code: None,
+			module_id: None,
 			message,
 		}
 	}

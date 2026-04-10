@@ -76,8 +76,8 @@ syncErrorEvent: "sync-error-event"
 
 /** user-defined constants **/
 
-export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
 export const SUPPORTED_RESOURCE_TYPES = ["application/pdf"] as const;
+export const SUPPORTED_MODULE_TYPES = ["page","book","resource"] as const;
 
 /** user-defined types **/
 
@@ -91,7 +91,7 @@ export type ModuleContent = { id: number; moduleId: number; updatedAt: bigint; r
 export type MoodleAuthEvent = AuthStatus
 export type SectionModule = { id: number; sectionId: number; name: string; updatedAt: bigint; mimeTypes?: string[]; moduleType: SectionModuleType }
 export type SectionModuleType = "page" | "book" | "forum" | "resource" | "url" | "Unknown"
-export type SyncError = { code: string | null; message: string }
+export type SyncError = { code: string | null; module_id: number | null; message: string }
 export type SyncErrorEvent = SyncError
 
 /** tauri-specta globals **/

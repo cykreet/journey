@@ -19,7 +19,7 @@ export function MenuSidebarItem({
 
 	return (
 		<div className={classNames}>
-			{Icon && <Icon />}
+			{Icon && <Icon className="min-w-fit" />}
 			<span className="text-ellipsis overflow-hidden whitespace-nowrap">{children}</span>
 		</div>
 	);

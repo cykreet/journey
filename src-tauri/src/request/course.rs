@@ -229,6 +229,7 @@ pub async fn get_course(app: AppHandle, course_id: i32) -> Result<CourseWithSect
 
 					return Err(SyncError {
 						code: Some(error_body.error_code),
+						module_id: None,
 						message: error_body.message,
 					});
 				}
@@ -496,6 +497,7 @@ pub async fn get_module_content(
 					);
 					return Err(SyncError {
 						code: Some(error_body.error_code),
+						module_id: Some(module_id),
 						message: error_body.message,
 					});
 				}
@@ -892,6 +894,7 @@ pub async fn get_user_courses(app: AppHandle) -> Result<Vec<Course>, String> {
 
 						return Err(SyncError {
 							code: Some(error_body.error_code),
+							module_id: None,
 							message: error_body.message,
 						});
 					}

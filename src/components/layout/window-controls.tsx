@@ -33,12 +33,18 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
-		setSyncError(undefined);
+		if (moduleId != null && moduleId != syncError?.module_id) {
+			setSyncError(undefined);
+		}
 	}, [moduleId]);
 
 	useEffect(() => {
 		const errorUnlistenPromise = events.syncErrorEvent.listen((event) => {
-			setSyncError(event.payload);
+			const syncError = event.payload;
+			setSyncError(syncError);
+			if (syncError.module_id != null) {
+				setModuleId(syncError.module_id);
+			}
 		});
 
 		return () => {
@@ -54,7 +60,6 @@ export function WindowControls({ children }: { children: React.ReactNode }) {
 						<IconLayoutSidebar className="w-5 h-5" />
 					</Button>
 				</div>
-				<span>{syncError?.message}</span>
 				<div data-tauri-drag-region className="flex justify-center my-auto h-8">
 					{moduleName && (
 						// todo: display module error state on click with a popout or something
