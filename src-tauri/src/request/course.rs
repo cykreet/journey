@@ -412,7 +412,7 @@ pub async fn get_module_content(
 										// 2. set "target" to _blank on external anchors, this ensures external links open in the browser
 										// and won't try to navigate within the webview itself
 										element!("a[href]", |el| {
-											if let Some(src) = el.get_attribute("src") {
+											if let Some(src) = el.get_attribute("href") {
 												if src.starts_with("http").not() {
 													return Ok(());
 												}
