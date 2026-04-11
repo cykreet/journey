@@ -33,6 +33,7 @@ const pdfOptions = {
 export function Course() {
 	const [match, params] = useRoute("/course/:courseId/:moduleId?");
 	const { data: courseData, error: _error, loading } = useCommand(commands.getCourse, Number(params?.courseId));
+	const moduleContext = useContext(ModuleContext);
 
 	if (!match || params.courseId == null) navigate("/home", { replace: true });
 	if (params?.courseId == null) throw new Error("course id not found in params");
@@ -59,6 +60,16 @@ export function Course() {
 			}),
 		};
 	}) as MenuSidebarSectionProps[];
+
+	useEffect(() => {
+		const moduleId = params.moduleId;
+		if (moduleContext == null || moduleId == null) return;
+		moduleContext.setId(Number(moduleId));
+
+		return () => {
+			moduleContext.setId(undefined);
+		};
+	}, [params.moduleId, moduleContext]);
 
 	useEffect(() => {
 		if (
