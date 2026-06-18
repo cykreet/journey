@@ -4,6 +4,9 @@
 </p>
 <h1 align="center">journey</h1>
 
+> [!warning]
+> this repository along with some others are being moved over to radicle: https://radicle.network/nodes/iris.radicle.network/rad:z786MJuMRMVZ27PPsVfDxDq2YEfR
+
 > [!note]
 >  journey and i are not in any way affiliated with moodle, this is just a personal project to make the desktop experience a little more tolerable. this is also my first venture into tauri, and (largely) effective rust backends, so a lot of this is still super early/not ideal.
 
